@@ -1,0 +1,67 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient like ocean -->
+  <defs>
+    <radialGradient id="oceanGrad" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2E5C8A;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <circle cx="64" cy="64" r="60" fill="url(#oceanGrad)"/>
+  
+  <!-- Ship wheel (helm) -->
+  <g id="wheel">
+    <!-- Outer ring -->
+    <circle cx="64" cy="64" r="35" fill="none" stroke="#D4A574" stroke-width="4"/>
+    <circle cx="64" cy="64" r="30" fill="none" stroke="#8B5A2B" stroke-width="2"/>
+    
+    <!-- Center hub -->
+    <circle cx="64" cy="64" r="12" fill="#8B5A2B" stroke="#D4A574" stroke-width="2"/>
+    
+    <!-- 8 spokes -->
+    <line x1="64" y1="34" x2="64" y2="52" stroke="#8B5A2B" stroke-width="3" stroke-linecap="round"/>
+    <line x1="64" y1="76" x2="64" y2="94" stroke="#8B5A2B" stroke-width="3" stroke-linecap="round"/>
+    <line x1="34" y1="64" x2="52" y2="64" stroke="#8B5A2B" stroke-width="3" stroke-linecap="round"/>
+    <line x1="76" y1="64" x2="94" y2="64" stroke="#8B5A2B" stroke-width="3" stroke-linecap="round"/>
+    
+    <line x1="42.8" y1="42.8" x2="55.5" y2="55.5" stroke="#8B5A2B" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="72.5" y1="72.5" x2="85.2" y2="85.2" stroke="#8B5A2B" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="85.2" y1="42.8" x2="72.5" y2="55.5" stroke="#8B5A2B" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="55.5" y1="72.5" x2="42.8" y2="85.2" stroke="#8B5A2B" stroke-width="2.5" stroke-linecap="round"/>
+    
+    <!-- Handle grips on cardinal directions -->
+    <rect x="60" y="26" width="8" height="12" rx="2" fill="#D4A574" stroke="#8B5A2B" stroke-width="1"/>
+    <rect x="60" y="90" width="8" height="12" rx="2" fill="#D4A574" stroke="#8B5A2B" stroke-width="1"/>
+    <rect x="26" y="60" width="12" height="8" rx="2" fill="#D4A574" stroke="#8B5A2B" stroke-width="1"/>
+    <rect x="90" y="60" width="12" height="8" rx="2" fill="#D4A574" stroke="#8B5A2B" stroke-width="1"/>
+  </g>
+  
+  <!-- hjkl Keys as directional indicators -->
+  <!-- k - up -->
+  <g transform="translate(64, 15)">
+    <rect x="-10" y="-10" width="20" height="20" rx="3" fill="white" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="0" y="5" font-family="monospace" font-size="16" font-weight="bold" fill="#2E5C8A" text-anchor="middle">k</text>
+    <path d="M 0,-12 L -3,-17 L 3,-17 Z" fill="#FFD700"/>
+  </g>
+  
+  <!-- j - down -->
+  <g transform="translate(64, 113)">
+    <rect x="-10" y="-10" width="20" height="20" rx="3" fill="white" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="0" y="5" font-family="monospace" font-size="16" font-weight="bold" fill="#2E5C8A" text-anchor="middle">j</text>
+    <path d="M 0,12 L -3,17 L 3,17 Z" fill="#FFD700"/>
+  </g>
+  
+  <!-- h - left -->
+  <g transform="translate(15, 64)">
+    <rect x="-10" y="-10" width="20" height="20" rx="3" fill="white" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="0" y="5" font-family="monospace" font-size="16" font-weight="bold" fill="#2E5C8A" text-anchor="middle">h</text>
+    <path d="M -12,0 L -17,-3 L -17,3 Z" fill="#FFD700"/>
+  </g>
+  
+  <!-- l - right -->
+  <g transform="translate(113, 64)">
+    <rect x="-10" y="-10" width="20" height="20" rx="3" fill="white" stroke="#2E5C8A" stroke-width="2"/>
+    <text x="0" y="5" font-family="monospace" font-size="16" font-weight="bold" fill="#2E5C8A" text-anchor="middle">l</text>
+    <path d="M 12,0 L 17,-3 L 17,3 Z" fill="#FFD700"/>
+  </g>
+</svg>

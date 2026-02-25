@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ModalBrowsing</title>
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 12px 0;
+      color: #333;
+    }
+
+    .toggle-section {
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .toggle-btn {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.2s;
+    }
+
+    .toggle-btn.enabled {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .toggle-btn.disabled {
+      background-color: #f44336;
+      color: white;
+    }
+
+    .keybindings {
+      margin-top: 12px;
+    }
+
+    .keybindings h2 {
+      font-size: 14px;
+      margin: 0 0 8px 0;
+      color: #666;
+      font-weight: 600;
+    }
+
+    .key-group {
+      margin-bottom: 12px;
+    }
+
+    .key-group h3 {
+      font-size: 12px;
+      margin: 0 0 4px 0;
+      color: #888;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .key-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .key {
+      font-family: 'Courier New', monospace;
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .description {
+      color: #666;
+    }
+
+    .footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #e0e0e0;
+      font-size: 12px;
+      color: #999;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>ModalBrowsing</h1>
+  
+  <div class="toggle-section">
+    <button id="toggleBtn" class="toggle-btn enabled">Enabled</button>
+  </div>
+
+  <div class="keybindings">
+    <h2>Keyboard Shortcuts</h2>
+    
+    <div class="key-group">
+      <h3>Scrolling</h3>
+      <div class="key-item">
+        <span class="key">j</span>
+        <span class="description">Scroll down</span>
+      </div>
+      <div class="key-item">
+        <span class="key">k</span>
+        <span class="description">Scroll up</span>
+      </div>
+      <div class="key-item">
+        <span class="key">h</span>
+        <span class="description">Scroll left</span>
+      </div>
+      <div class="key-item">
+        <span class="key">l</span>
+        <span class="description">Scroll right</span>
+      </div>
+      <div class="key-item">
+        <span class="key">d</span>
+        <span class="description">Scroll down (large)</span>
+      </div>
+      <div class="key-item">
+        <span class="key">u</span>
+        <span class="description">Scroll up (large)</span>
+      </div>
+    </div>
+
+    <div class="key-group">
+      <h3>Navigation</h3>
+      <div class="key-item">
+        <span class="key">gg</span>
+        <span class="description">Go to top</span>
+      </div>
+      <div class="key-item">
+        <span class="key">G</span>
+        <span class="description">Go to bottom</span>
+      </div>
+      <div class="key-item">
+        <span class="key">J</span>
+        <span class="description">Switch to left tab</span>
+      </div>
+      <div class="key-item">
+        <span class="key">K</span>
+        <span class="description">Switch to right tab</span>
+      </div>
+      <div class="key-item">
+        <span class="key">H</span>
+        <span class="description">Go back in history</span>
+      </div>
+      <div class="key-item">
+        <span class="key">L</span>
+        <span class="description">Go forward in history</span>
+      </div>
+      <div class="key-item">
+        <span class="key">r</span>
+        <span class="description">Reload page</span>
+      </div>
+      <div class="key-item">
+        <span class="key">o</span>
+        <span class="description">Open URL</span>
+      </div>
+      <div class="key-item">
+        <span class="key">t</span>
+        <span class="description">Open new tab</span>
+      </div>
+      <div class="key-item">
+        <span class="key">x</span>
+        <span class="description">Close current tab</span>
+      </div>
+      <div class="key-item">
+        <span class="key">X</span>
+        <span class="description">Reopen last closed tab</span>
+      </div>
+    </div>
+
+    <div class="key-group">
+      <h3>Other</h3>
+      <div class="key-item">
+        <span class="key">f</span>
+        <span class="description">Hints: click element</span>
+      </div>
+      <div class="key-item">
+        <span class="key">F</span>
+        <span class="description">Hints: open in new tab</span>
+      </div>
+      <div class="key-item">
+        <span class="key">yy</span>
+        <span class="description">Copy URL to clipboard</span>
+      </div>
+      <div class="key-item">
+        <span class="key">yf</span>
+        <span class="description">Hints: copy link URL</span>
+      </div>
+      <div class="key-item">
+        <span class="key">i</span>
+        <span class="description">Focus first input</span>
+      </div>
+      <div class="key-item">
+        <span class="key">/</span>
+        <span class="description">Open find dialog</span>
+      </div>
+      <div class="key-item">
+        <span class="key">Esc</span>
+        <span class="description">Exit to normal mode</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Privacy-focused • Minimal permissions
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
