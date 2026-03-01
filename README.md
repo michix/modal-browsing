@@ -20,6 +20,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 ## Keyboard Shortcuts
 
 ### Scrolling
+
 - `j` - Scroll down
 - `k` - Scroll up
 - `h` - Scroll left
@@ -28,6 +29,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `u` - Scroll up (large step)
 
 ### Navigation
+
 - `gg` - Go to top of page
 - `G` (Shift+g) - Go to bottom of page
 - `J` (Shift+j) - Switch to left tab
@@ -41,6 +43,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `X` (Shift+x) - Reopen last closed tab
 
 ### Other
+
 - `f` - Show hints for clickable elements (links, buttons) and activate them
 - `F` (Shift+f) - Show hints for clickable elements and open links in new tab
 - `yy` - Copy current page URL to clipboard
@@ -63,11 +66,20 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 ### Icons
 
 The extension includes icon files with a nautical ship wheel design and hjkl directional keys:
+
 - `icons/icon16.png` (16x16 pixels)
 - `icons/icon48.png` (48x48 pixels)
 - `icons/icon128.png` (128x128 pixels)
 
 The icons are already included and ready to use.
+
+## Distribution
+
+In order to pubsh the extension, you need to ZIP it *without* the directory. In the project directory please execute:
+
+```bash
+zip -r ../modal-browsing.zip *.js LICENSE *.json *.html icons
+```
 
 ## Privacy
 
