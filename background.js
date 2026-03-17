@@ -17,6 +17,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'reopenTab') {
     handleReopenTab();
     sendResponse({ success: true });
+  } else if (message.action === 'moveTabLeft') {
+    handleMoveTab('left', sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'moveTabRight') {
+    handleMoveTab('right', sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'omnibarSearch') {
+    handleOmnibarSearch(message.query, sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'omnibarSwitchTab') {
+    handleOmnibarSwitchTab(message.tabId).then(sendResponse);
+    return true;
+  } else if (message.action === 'omnibarOpenUrl') {
+    handleOmnibarOpenUrl(message.url, sender.tab).then(sendResponse);
+    return true;
   }
   return true;
 });
@@ -100,5 +115,96 @@ async function handleReopenTab() {
     });
   } catch (error) {
     console.error('Error reopening tab:', error);
+  }
+}
+
+// Tab moving
+async function handleMoveTab(direction, currentTab) {
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const current = tabs.find(tab => tab.id === currentTab.id);
+
+    if (!current) {
+      return { success: false, notify: 'Could not find current tab.' };
+    }
+
+    if (current.pinned) {
+      return { success: false, notify: 'Pinned tabs cannot be moved.' };
+    }
+
+    if (direction === 'left') {
+      // Find the first non-pinned tab index as the left boundary
+      const firstUnpinned = tabs.find(tab => !tab.pinned);
+      if (!firstUnpinned || current.index <= firstUnpinned.index) {
+        return { success: false, notify: 'Tab is already at the leftmost position; cannot move further.' };
+      }
+      await chrome.tabs.move(current.id, { index: current.index - 1 });
+      return { success: true, notify: 'Tab moved left.' };
+    }
+
+    if (direction === 'right') {
+      const lastTab = tabs[tabs.length - 1];
+      if (current.index >= lastTab.index) {
+        return { success: false, notify: 'Tab is already at the rightmost position; cannot move further.' };
+      }
+      await chrome.tabs.move(current.id, { index: current.index + 1 });
+      return { success: true, notify: 'Tab moved right.' };
+    }
+
+    return { success: false, notify: 'Unknown direction.' };
+  } catch (error) {
+    console.error('Error moving tab:', error);
+    return { success: false, notify: 'Error moving tab: ' + error.message };
+  }
+}
+
+// Omnibar: search open tabs
+async function handleOmnibarSearch(query, senderTab) {
+  try {
+    const results = [];
+    const lowerQuery = query.toLowerCase();
+
+    // Search open tabs
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    for (const tab of tabs) {
+      if (tab.id === senderTab.id) continue; // skip current tab
+      const title = (tab.title || '').toLowerCase();
+      const url = (tab.url || '').toLowerCase();
+      if (title.includes(lowerQuery) || url.includes(lowerQuery)) {
+        results.push({
+          type: 'tab',
+          title: tab.title || '(Untitled)',
+          url: tab.url || '',
+          tabId: tab.id
+        });
+      }
+    }
+
+    return { success: true, results: results };
+  } catch (error) {
+    console.error('Error in omnibar search:', error);
+    return { success: false, results: [] };
+  }
+}
+
+// Omnibar: switch to a tab by ID
+async function handleOmnibarSwitchTab(tabId) {
+  try {
+    await chrome.tabs.update(tabId, { active: true });
+    return { success: true };
+  } catch (error) {
+    console.error('Error switching to tab:', error);
+    return { success: false };
+  }
+}
+
+// Omnibar: open a URL in the current tab
+async function handleOmnibarOpenUrl(url, senderTab) {
+  try {
+    await chrome.tabs.update(senderTab.id, { url: url });
+    return { success: true };
+  } catch (error) {
+    console.error('Error opening URL:', error);
+    return { success: false };
   }
 }

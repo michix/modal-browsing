@@ -10,7 +10,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - **Modal navigation** - keyboard shortcuts work in "normal mode" (outside input fields)
   - Press `i` to focus an input field and enter "insert mode"
   - Press `Esc` from any input field to return to "normal mode"
-- **Minimal permissions** - only requires `activeTab` and `storage`, no access to:
+- **Minimal permissions** - only requests what is needed, no access to:
   - Browse history
   - Files
   - All sites data
@@ -34,10 +34,12 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `G` (Shift+g) - Go to bottom of page
 - `J` (Shift+j) - Switch to left tab
 - `K` (Shift+k) - Switch to right tab
+- `<<` - Move current tab to the left
+- `>>` - Move current tab to the right
 - `H` (Shift+h) - Go back in browser history
 - `L` (Shift+l) - Go forward in browser history
 - `r` - Reload current page
-- `o` - Open URL (prompts for URL input)
+- `o` - Open omnibar (search open tabs or enter a URL)
 - `t` - Open new tab
 - `x` - Close current tab
 - `X` (Shift+x) - Reopen last closed tab
@@ -49,8 +51,10 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `yy` - Copy current page URL to clipboard
 - `yf` - Show hints for links and copy selected link URL to clipboard
 - `i` - Focus first input field on page
-- `/` - Open find dialog
-- `Esc` - Exit input field to normal mode, unfocus element, or exit link hint mode
+- `/` - Search page (type query, Enter/Shift+Enter to navigate matches)
+- `n` - Jump to next search match
+- `N` (Shift+n) - Jump to previous search match
+- `Esc` - Close search / exit input field to normal mode / unfocus element / exit link hint mode
 
 ## Installation
 
