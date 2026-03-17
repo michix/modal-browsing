@@ -4,6 +4,8 @@ A lightweight browser extension for Microsoft Edge that provides modal keyboard 
 
 I am not an expert in JavaScript nor in Browser extensions. This project was only possible due to the support of AI and [opencode](https://opencode.ai/). I would have not taken this effort if I were allowed to use Vimium (which is not possible due to compliance requirements and the many permissions, Vimium needs for certain features).
 
+You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedge.microsoft.com/addons/detail/modalbrowsing/hfkdgjgmcggccfbmhgcfeecbinlgmffj) store.
+
 ## Features
 
 - **Vim-inspired keybindings** for efficient web browsing
