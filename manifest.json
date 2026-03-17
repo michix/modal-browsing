@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ModalBrowsing",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Modal keyboard navigation for web pages with minimal permissions - navigate like Vim without the privacy concerns",
   "permissions": [
     "activeTab",
