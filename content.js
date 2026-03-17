@@ -315,7 +315,7 @@
         lastKeyTime = currentTime;
         handled = true;
       }
-    } else if (event.key === 'f') {
+    } else if (event.key === 'f' || event.key === 'F') {
       if (event.shiftKey) {
         // 'F' (Shift+f) - show link hints for opening in new tab
         showLinkHints('newtab');
@@ -387,7 +387,7 @@
     }
 
     // If a sequence key was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'g' || event.key === '<' || event.key === '>')) {
+    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 'g' || event.key === '<' || event.key === '>')) {
       event.preventDefault();
       event.stopPropagation();
       return;
