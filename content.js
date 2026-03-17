@@ -29,8 +29,10 @@
     const tagName = element.tagName.toLowerCase();
     const isEditable = element.isContentEditable;
     const isInput = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+    const role = (element.getAttribute('role') || '').toLowerCase();
+    const isRoleEditable = role === 'textbox' || role === 'combobox' || role === 'searchbox';
     
-    return isEditable || isInput;
+    return isEditable || isInput || isRoleEditable;
   }
 
   // Get all clickable elements
@@ -876,6 +878,8 @@
     // Allow ESC to work from input fields to exit to normal mode
     if (event.key === 'Escape' && isEditableElement(event.target)) {
       event.target.blur();
+      // Ensure focus moves away from the editable element
+      document.body.focus();
       event.preventDefault();
       event.stopPropagation();
       return;

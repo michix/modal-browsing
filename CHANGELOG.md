@@ -5,6 +5,7 @@
 ### 1.1.0
 
 - (Feature) Adds `<<` and `>>` to move tabs.
+- (Feature) Get into normal mode pressing `<esc>` in an input field.
 - (Bugfix) `<shift>+f` opens links in new tab.
 - (Bugfix) Fixes search with `/`.
 - (Bugfix) Fixes open URL or switch to tab using `o`.
