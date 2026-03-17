@@ -123,7 +123,7 @@
       z-index: 999999;
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       pointer-events: none;
-      text-transform: uppercase;
+      text-transform: lowercase;
     }
     .modalbrowsing-hint-highlight {
       outline: 2px solid #FFD700 !important;
