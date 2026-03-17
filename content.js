@@ -267,6 +267,75 @@
       color: #666;
       font-size: 13px;
     }
+    .modalbrowsing-help-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 999998;
+    }
+    .modalbrowsing-help {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 520px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      z-index: 999999;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      padding: 20px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 13px;
+      color: #ccc;
+    }
+    .modalbrowsing-help h2 {
+      margin: 0 0 14px 0;
+      font-size: 16px;
+      color: #e0e0e0;
+      font-weight: 600;
+    }
+    .modalbrowsing-help h3 {
+      margin: 12px 0 6px 0;
+      font-size: 11px;
+      color: #888;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .modalbrowsing-help .help-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+    }
+    .modalbrowsing-help .help-key {
+      font-family: 'Courier New', monospace;
+      background: #333;
+      color: #e0e0e0;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .modalbrowsing-help .help-desc {
+      color: #999;
+      text-align: right;
+    }
+    .modalbrowsing-help .help-footer {
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid #333;
+      text-align: center;
+      color: #666;
+      font-size: 11px;
+    }
   `;
   document.head.appendChild(style);
 
@@ -859,6 +928,84 @@
     }
   }
 
+  // --- Help overlay state ---
+  let helpOpen = false;
+  let helpOverlay = null;
+  let helpContainer = null;
+
+  function openHelp() {
+    if (helpOpen) return;
+    helpOpen = true;
+
+    helpOverlay = document.createElement('div');
+    helpOverlay.className = 'modalbrowsing-help-overlay';
+    helpOverlay.addEventListener('click', closeHelp);
+
+    helpContainer = document.createElement('div');
+    helpContainer.className = 'modalbrowsing-help';
+
+    const shortcuts = [
+      { heading: 'Scrolling', items: [
+        ['j', 'Scroll down'], ['k', 'Scroll up'],
+        ['h', 'Scroll left'], ['l', 'Scroll right'],
+        ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
+      ]},
+      { heading: 'Navigation', items: [
+        ['gg', 'Go to top'], ['G', 'Go to bottom'],
+        ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
+        ['<<', 'Move tab left'], ['>>', 'Move tab right'],
+        ['H', 'Go back in history'], ['L', 'Go forward in history'],
+        ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
+        ['t', 'Open new tab'], ['x', 'Close tab'],
+        ['X', 'Reopen last closed tab'],
+      ]},
+      { heading: 'Other', items: [
+        ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
+        ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
+        ['i', 'Focus first input'], ['/', 'Search page'],
+        ['n', 'Next search match'], ['N', 'Previous search match'],
+        ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
+      ]},
+    ];
+
+    const title = document.createElement('h2');
+    title.textContent = 'ModalBrowsing — Keyboard Shortcuts';
+    helpContainer.appendChild(title);
+
+    for (const group of shortcuts) {
+      const h3 = document.createElement('h3');
+      h3.textContent = group.heading;
+      helpContainer.appendChild(h3);
+      for (const [key, desc] of group.items) {
+        const row = document.createElement('div');
+        row.className = 'help-row';
+        const keySpan = document.createElement('span');
+        keySpan.className = 'help-key';
+        keySpan.textContent = key;
+        const descSpan = document.createElement('span');
+        descSpan.className = 'help-desc';
+        descSpan.textContent = desc;
+        row.appendChild(keySpan);
+        row.appendChild(descSpan);
+        helpContainer.appendChild(row);
+      }
+    }
+
+    const footer = document.createElement('div');
+    footer.className = 'help-footer';
+    footer.textContent = 'Press ? or Esc to close';
+    helpContainer.appendChild(footer);
+
+    document.body.appendChild(helpOverlay);
+    document.body.appendChild(helpContainer);
+  }
+
+  function closeHelp() {
+    helpOpen = false;
+    if (helpOverlay) { helpOverlay.remove(); helpOverlay = null; }
+    if (helpContainer) { helpContainer.remove(); helpContainer = null; }
+  }
+
   // Handle keyboard shortcuts
   function handleKeydown(event) {
     // Handle Escape from omnibar input specially
@@ -1122,7 +1269,19 @@
 
       // Open search overlay
       case '/':
-        openSearchBar();
+        if (!event.shiftKey) {
+          openSearchBar();
+          handled = true;
+        }
+        break;
+
+      // Help overlay
+      case '?':
+        if (helpOpen) {
+          closeHelp();
+        } else {
+          openHelp();
+        }
         handled = true;
         break;
 
@@ -1142,7 +1301,10 @@
 
       // Escape to clear search and blur
       case 'Escape':
-        if (searchMatches.length > 0 || searchOverlay) {
+        if (helpOpen) {
+          closeHelp();
+          handled = true;
+        } else if (searchMatches.length > 0 || searchOverlay) {
           closeSearchBar(true); // clear highlights and close
           handled = true;
         } else if (document.activeElement) {

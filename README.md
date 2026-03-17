@@ -54,6 +54,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `/` - Search page (type query, Enter/Shift+Enter to navigate matches)
 - `n` - Jump to next search match
 - `N` (Shift+n) - Jump to previous search match
+- `?` - Show keyboard shortcuts help overlay
 - `Esc` - Close search / exit input field to normal mode / unfocus element / exit link hint mode
 
 ## Installation
