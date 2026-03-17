@@ -78,25 +78,25 @@
     notification.textContent = message;
     notification.style.cssText = `
       position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #4CAF50;
-      color: white;
-      padding: 12px 20px;
+      bottom: 16px;
+      right: 16px;
+      background: rgba(50, 50, 50, 0.85);
+      color: #e0e0e0;
+      padding: 8px 14px;
       border-radius: 4px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
+      font-size: 12px;
       z-index: 999999;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-      animation: slideIn 0.3s ease-out;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+      animation: slideIn 0.2s ease-out;
     `;
     
     document.body.appendChild(notification);
     
     setTimeout(() => {
-      notification.style.animation = 'slideOut 0.3s ease-out';
-      setTimeout(() => notification.remove(), 300);
-    }, 2000);
+      notification.style.animation = 'slideOut 0.2s ease-out';
+      setTimeout(() => notification.remove(), 200);
+    }, 1500);
   }
 
   // Add CSS animations
