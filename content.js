@@ -16,6 +16,13 @@
   let linkHints = [];
   let hintInput = '';
 
+  // Search state
+  let searchMode = false;
+  let searchQuery = '';
+  let searchMatches = [];
+  let currentMatchIndex = -1;
+  let searchOverlay = null;
+
   // Check if we're in an input field
   function isEditableElement(element) {
     if (!element) return false;
@@ -128,6 +135,49 @@
     .modalbrowsing-hint-highlight {
       outline: 2px solid #FFD700 !important;
       outline-offset: 2px;
+    }
+    .modalbrowsing-search-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      background: #1e1e1e;
+      border-bottom: 1px solid #444;
+      padding: 6px 12px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #e0e0e0;
+    }
+    .modalbrowsing-search-bar span {
+      margin-right: 6px;
+      color: #aaa;
+    }
+    .modalbrowsing-search-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e0e0e0;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .modalbrowsing-search-bar .modalbrowsing-search-count {
+      margin-left: 12px;
+      color: #888;
+      font-size: 12px;
+    }
+    .modalbrowsing-search-highlight {
+      background: #FFD700 !important;
+      color: #000 !important;
+      border-radius: 1px;
+    }
+    .modalbrowsing-search-current {
+      background: #FF8C00 !important;
+      color: #000 !important;
+      border-radius: 1px;
     }
   `;
   document.head.appendChild(style);
@@ -259,8 +309,228 @@
     });
   }
 
+  // --- Search / Find on page ---
+
+  // Open the search bar
+  function openSearchBar() {
+    if (searchOverlay) return; // already open
+    searchMode = true;
+
+    searchOverlay = document.createElement('div');
+    searchOverlay.className = 'modalbrowsing-search-bar';
+
+    const label = document.createElement('span');
+    label.textContent = '/';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search...';
+    input.value = searchQuery; // restore previous query if any
+
+    const count = document.createElement('span');
+    count.className = 'modalbrowsing-search-count';
+    count.textContent = '';
+
+    searchOverlay.appendChild(label);
+    searchOverlay.appendChild(input);
+    searchOverlay.appendChild(count);
+    document.body.appendChild(searchOverlay);
+
+    input.focus();
+
+    // Live search as user types
+    input.addEventListener('input', () => {
+      searchQuery = input.value;
+      performSearch(searchQuery);
+      updateSearchCount(count);
+    });
+
+    // Handle Enter (next), Shift+Enter (prev), Escape (close) inside the input
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeSearchBar(false); // keep highlights so n/N can navigate
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'Enter') {
+        if (e.shiftKey) {
+          navigateSearch(-1);
+        } else {
+          navigateSearch(1);
+        }
+        updateSearchCount(count);
+        e.preventDefault();
+      }
+    });
+  }
+
+  // Close the search bar
+  function closeSearchBar(clearHighlightsFlag) {
+    searchMode = false;
+    if (searchOverlay) {
+      searchOverlay.remove();
+      searchOverlay = null;
+    }
+    if (clearHighlightsFlag) {
+      clearSearchHighlights();
+      searchQuery = '';
+      searchMatches = [];
+      currentMatchIndex = -1;
+    }
+  }
+
+  // Perform text search across the page
+  function performSearch(query) {
+    clearSearchHighlights();
+    searchMatches = [];
+    currentMatchIndex = -1;
+
+    if (!query || query.length === 0) return;
+
+    const lowerQuery = query.toLowerCase();
+
+    // Phase 1: Collect all text nodes that contain the query
+    const matchData = []; // { node, idx }
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode: function(node) {
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          // Skip our own UI elements
+          if (parent.closest('.modalbrowsing-search-bar') ||
+              parent.closest('.modalbrowsing-hint')) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          // Skip script/style
+          const tag = parent.tagName;
+          if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          if (node.textContent.toLowerCase().includes(lowerQuery)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+          return NodeFilter.FILTER_REJECT;
+        }
+      }
+    );
+
+    let textNode;
+    while (textNode = walker.nextNode()) {
+      const lowerText = textNode.textContent.toLowerCase();
+      let startPos = 0;
+      while (true) {
+        const idx = lowerText.indexOf(lowerQuery, startPos);
+        if (idx === -1) break;
+        matchData.push({ node: textNode, idx: idx, length: query.length });
+        startPos = idx + query.length;
+      }
+    }
+
+    // Phase 2: Apply highlights in reverse order so earlier indices stay valid
+    // Group by node and process each node's matches in reverse
+    const nodeGroups = new Map();
+    for (const m of matchData) {
+      if (!nodeGroups.has(m.node)) {
+        nodeGroups.set(m.node, []);
+      }
+      nodeGroups.get(m.node).push(m);
+    }
+
+    // We need to process in reverse document order for nodes,
+    // and reverse index order within each node
+    const nodeList = Array.from(nodeGroups.keys()).reverse();
+    const allMarks = [];
+
+    for (const node of nodeList) {
+      const matches = nodeGroups.get(node).sort((a, b) => b.idx - a.idx); // reverse by idx
+      for (const m of matches) {
+        try {
+          const range = document.createRange();
+          range.setStart(m.node, m.idx);
+          range.setEnd(m.node, m.idx + m.length);
+          const mark = document.createElement('mark');
+          mark.className = 'modalbrowsing-search-highlight';
+          range.surroundContents(mark);
+          allMarks.push(mark);
+        } catch (e) {
+          // skip if range is invalid
+        }
+      }
+    }
+
+    // allMarks is in reverse document order; reverse it
+    allMarks.reverse();
+    searchMatches = allMarks;
+
+    // Jump to first match
+    if (searchMatches.length > 0) {
+      currentMatchIndex = 0;
+      highlightCurrentMatch();
+    }
+  }
+
+  // Navigate between search matches
+  function navigateSearch(direction) {
+    if (searchMatches.length === 0) return;
+
+    // Remove current highlight
+    if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
+      searchMatches[currentMatchIndex].className = 'modalbrowsing-search-highlight';
+    }
+
+    currentMatchIndex += direction;
+    if (currentMatchIndex >= searchMatches.length) {
+      currentMatchIndex = 0;
+    } else if (currentMatchIndex < 0) {
+      currentMatchIndex = searchMatches.length - 1;
+    }
+
+    highlightCurrentMatch();
+  }
+
+  // Highlight and scroll to the current match
+  function highlightCurrentMatch() {
+    if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
+    const mark = searchMatches[currentMatchIndex];
+    mark.className = 'modalbrowsing-search-current';
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Update the match counter display
+  function updateSearchCount(countEl) {
+    if (!countEl) return;
+    if (searchMatches.length === 0 && searchQuery.length > 0) {
+      countEl.textContent = 'No matches';
+    } else if (searchMatches.length > 0) {
+      countEl.textContent = (currentMatchIndex + 1) + '/' + searchMatches.length;
+    } else {
+      countEl.textContent = '';
+    }
+  }
+
+  // Remove all search highlight <mark> elements and restore original text
+  function clearSearchHighlights() {
+    const marks = document.querySelectorAll('mark.modalbrowsing-search-highlight, mark.modalbrowsing-search-current');
+    marks.forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize(); // merge adjacent text nodes
+      }
+    });
+  }
+
   // Handle keyboard shortcuts
   function handleKeydown(event) {
+    // Handle Escape from search bar input specially
+    if (event.key === 'Escape' && searchOverlay && searchOverlay.contains(event.target)) {
+      closeSearchBar(false); // close bar but keep highlights for n/N navigation
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Allow ESC to work from input fields to exit to normal mode
     if (event.key === 'Escape' && isEditableElement(event.target)) {
       event.target.blur();
@@ -502,16 +772,32 @@
         }
         break;
 
-      // Open find dialog
+      // Open search overlay
       case '/':
-        // Trigger the browser's find functionality
-        document.execCommand('find');
+        openSearchBar();
         handled = true;
         break;
 
-      // Escape to blur
+      // Search navigation
+      case 'n':
+        if (!event.shiftKey && searchMatches.length > 0) {
+          navigateSearch(1);
+          handled = true;
+        }
+        break;
+      case 'N':
+        if (event.shiftKey && searchMatches.length > 0) {
+          navigateSearch(-1);
+          handled = true;
+        }
+        break;
+
+      // Escape to clear search and blur
       case 'Escape':
-        if (document.activeElement) {
+        if (searchMatches.length > 0 || searchOverlay) {
+          closeSearchBar(true); // clear highlights and close
+          handled = true;
+        } else if (document.activeElement) {
           document.activeElement.blur();
           handled = true;
         }

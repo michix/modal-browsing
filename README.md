@@ -51,8 +51,10 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `yy` - Copy current page URL to clipboard
 - `yf` - Show hints for links and copy selected link URL to clipboard
 - `i` - Focus first input field on page
-- `/` - Open find dialog
-- `Esc` - Exit input field to normal mode, unfocus element, or exit link hint mode
+- `/` - Search page (type query, Enter/Shift+Enter to navigate matches)
+- `n` - Jump to next search match
+- `N` (Shift+n) - Jump to previous search match
+- `Esc` - Close search / exit input field to normal mode / unfocus element / exit link hint mode
 
 ## Installation
 
