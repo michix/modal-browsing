@@ -301,7 +301,7 @@
       return;
     }
 
-    // Check for 'yy', 'yf', and 'gg' sequences
+    // Check for 'yy', 'yf', 'gg', '<<', and '>>' sequences
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
@@ -344,6 +344,38 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === '<') {
+      // '<' is Shift+, on most keyboards, so event.shiftKey is true - that is expected
+      if (lastKeyPressed === '<' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // Second '<' pressed - move tab left
+        chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
+          if (response && response.notify) showNotification(response.notify);
+        });
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else {
+        // First '<' pressed
+        lastKeyPressed = '<';
+        lastKeyTime = currentTime;
+        handled = true;
+      }
+    } else if (event.key === '>') {
+      // '>' is Shift+. on most keyboards, so event.shiftKey is true - that is expected
+      if (lastKeyPressed === '>' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // Second '>' pressed - move tab right
+        chrome.runtime.sendMessage({ action: 'moveTabRight' }, (response) => {
+          if (response && response.notify) showNotification(response.notify);
+        });
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else {
+        // First '>' pressed
+        lastKeyPressed = '>';
+        lastKeyTime = currentTime;
+        handled = true;
+      }
     } else {
       // Reset sequence if a different key is pressed
       if (lastKeyPressed && (currentTime - lastKeyTime) < keySequenceTimeout) {
@@ -354,8 +386,8 @@
       }
     }
 
-    // If 'yy', 'yf', or 'gg' was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'g')) {
+    // If a sequence key was handled, stop here
+    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'g' || event.key === '<' || event.key === '>')) {
       event.preventDefault();
       event.stopPropagation();
       return;

@@ -17,6 +17,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'reopenTab') {
     handleReopenTab();
     sendResponse({ success: true });
+  } else if (message.action === 'moveTabLeft') {
+    handleMoveTab('left', sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'moveTabRight') {
+    handleMoveTab('right', sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
   }
   return true;
 });
@@ -100,5 +106,45 @@ async function handleReopenTab() {
     });
   } catch (error) {
     console.error('Error reopening tab:', error);
+  }
+}
+
+// Tab moving
+async function handleMoveTab(direction, currentTab) {
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const current = tabs.find(tab => tab.id === currentTab.id);
+
+    if (!current) {
+      return { success: false, notify: 'Could not find current tab.' };
+    }
+
+    if (current.pinned) {
+      return { success: false, notify: 'Pinned tabs cannot be moved.' };
+    }
+
+    if (direction === 'left') {
+      // Find the first non-pinned tab index as the left boundary
+      const firstUnpinned = tabs.find(tab => !tab.pinned);
+      if (!firstUnpinned || current.index <= firstUnpinned.index) {
+        return { success: false, notify: 'Tab is already at the leftmost position; cannot move further.' };
+      }
+      await chrome.tabs.move(current.id, { index: current.index - 1 });
+      return { success: true, notify: 'Tab moved left.' };
+    }
+
+    if (direction === 'right') {
+      const lastTab = tabs[tabs.length - 1];
+      if (current.index >= lastTab.index) {
+        return { success: false, notify: 'Tab is already at the rightmost position; cannot move further.' };
+      }
+      await chrome.tabs.move(current.id, { index: current.index + 1 });
+      return { success: true, notify: 'Tab moved right.' };
+    }
+
+    return { success: false, notify: 'Unknown direction.' };
+  } catch (error) {
+    console.error('Error moving tab:', error);
+    return { success: false, notify: 'Error moving tab: ' + error.message };
   }
 }

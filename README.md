@@ -34,6 +34,8 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `G` (Shift+g) - Go to bottom of page
 - `J` (Shift+j) - Switch to left tab
 - `K` (Shift+k) - Switch to right tab
+- `<<` - Move current tab to the left
+- `>>` - Move current tab to the right
 - `H` (Shift+h) - Go back in browser history
 - `L` (Shift+l) - Go forward in browser history
 - `r` - Reload current page
