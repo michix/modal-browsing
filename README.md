@@ -10,7 +10,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - **Modal navigation** - keyboard shortcuts work in "normal mode" (outside input fields)
   - Press `i` to focus an input field and enter "insert mode"
   - Press `Esc` from any input field to return to "normal mode"
-- **Minimal permissions** - only requires `activeTab` and `storage`, no access to:
+- **Minimal permissions** - only requests what is needed, no access to:
   - Browse history
   - Files
   - All sites data
@@ -39,7 +39,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 - `H` (Shift+h) - Go back in browser history
 - `L` (Shift+l) - Go forward in browser history
 - `r` - Reload current page
-- `o` - Open URL (prompts for URL input)
+- `o` - Open omnibar (search open tabs or enter a URL)
 - `t` - Open new tab
 - `x` - Close current tab
 - `X` (Shift+x) - Reopen last closed tab

@@ -66,19 +66,6 @@
     }
   }
 
-  // Open URL prompt
-  function openUrlPrompt() {
-    const url = prompt('Enter URL to open:');
-    if (url) {
-      // Add protocol if missing
-      let fullUrl = url;
-      if (!url.match(/^[a-zA-Z]+:\/\//)) {
-        fullUrl = 'https://' + url;
-      }
-      window.location.href = fullUrl;
-    }
-  }
-
   // Show temporary notification
   function showNotification(message) {
     const notification = document.createElement('div');
@@ -178,6 +165,105 @@
       background: #FF8C00 !important;
       color: #000 !important;
       border-radius: 1px;
+    }
+    .modalbrowsing-omnibar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 999998;
+    }
+    .modalbrowsing-omnibar {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 560px;
+      max-width: 90vw;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+    .modalbrowsing-omnibar input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      background: #1e1e1e;
+      border: none;
+      border-bottom: 1px solid #333;
+      outline: none;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+    }
+    .modalbrowsing-omnibar input::placeholder {
+      color: #666;
+    }
+    .modalbrowsing-omnibar-results {
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .modalbrowsing-omnibar-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      cursor: pointer;
+      color: #ccc;
+      gap: 10px;
+    }
+    .modalbrowsing-omnibar-item:hover,
+    .modalbrowsing-omnibar-item.selected {
+      background: #2a2d32;
+    }
+    .modalbrowsing-omnibar-item .omni-badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
+    }
+    .modalbrowsing-omnibar-item .omni-badge.tab {
+      background: #264f78;
+      color: #7cb7ff;
+    }
+    .modalbrowsing-omnibar-item .omni-badge.url {
+      background: #2e3e2e;
+      color: #6abf6a;
+    }
+    .modalbrowsing-omnibar-item .omni-text {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .modalbrowsing-omnibar-item .omni-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 13px;
+      color: #e0e0e0;
+    }
+    .modalbrowsing-omnibar-item .omni-url {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 11px;
+      color: #777;
+      margin-top: 1px;
+    }
+    .modalbrowsing-omnibar-empty {
+      padding: 16px;
+      text-align: center;
+      color: #666;
+      font-size: 13px;
     }
   `;
   document.head.appendChild(style);
@@ -521,8 +607,264 @@
     });
   }
 
+  // --- Omnibar state ---
+  let omnibarOpen = false;
+  let omnibarOverlay = null;
+  let omnibarContainer = null;
+  let omnibarResults = [];
+  let omnibarSelectedIndex = -1;
+  let omnibarDebounceTimer = null;
+
+  // Open the omnibar
+  function openOmnibar() {
+    if (omnibarOpen) return;
+    omnibarOpen = true;
+    omnibarResults = [];
+    omnibarSelectedIndex = -1;
+
+    // Backdrop overlay
+    omnibarOverlay = document.createElement('div');
+    omnibarOverlay.className = 'modalbrowsing-omnibar-overlay';
+    omnibarOverlay.addEventListener('click', closeOmnibar);
+
+    // Main container
+    omnibarContainer = document.createElement('div');
+    omnibarContainer.className = 'modalbrowsing-omnibar';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Search tabs or enter URL...';
+
+    const resultsList = document.createElement('div');
+    resultsList.className = 'modalbrowsing-omnibar-results';
+
+    omnibarContainer.appendChild(input);
+    omnibarContainer.appendChild(resultsList);
+    document.body.appendChild(omnibarOverlay);
+    document.body.appendChild(omnibarContainer);
+
+    input.focus();
+
+    // Live search on input
+    input.addEventListener('input', () => {
+      const query = input.value.trim();
+      if (omnibarDebounceTimer) clearTimeout(omnibarDebounceTimer);
+
+      if (query.length === 0) {
+        omnibarResults = [];
+        omnibarSelectedIndex = -1;
+        renderOmnibarResults(resultsList, query);
+        return;
+      }
+
+      omnibarDebounceTimer = setTimeout(() => {
+        chrome.runtime.sendMessage({ action: 'omnibarSearch', query: query }, (response) => {
+          if (response && response.success) {
+            omnibarResults = response.results;
+          } else {
+            omnibarResults = [];
+          }
+          // If input looks like a URL, append an "Open URL" entry
+          omnibarResults = appendUrlOption(omnibarResults, input.value.trim());
+          omnibarSelectedIndex = omnibarResults.length > 0 ? 0 : -1;
+          renderOmnibarResults(resultsList, input.value.trim());
+        });
+      }, 150);
+    });
+
+    // Keyboard navigation inside the input
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeOmnibar();
+        e.preventDefault();
+        e.stopPropagation();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (omnibarResults.length > 0) {
+          omnibarSelectedIndex = (omnibarSelectedIndex + 1) % omnibarResults.length;
+          renderOmnibarResults(resultsList, input.value.trim());
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (omnibarResults.length > 0) {
+          omnibarSelectedIndex = (omnibarSelectedIndex - 1 + omnibarResults.length) % omnibarResults.length;
+          renderOmnibarResults(resultsList, input.value.trim());
+        }
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (omnibarSelectedIndex >= 0 && omnibarSelectedIndex < omnibarResults.length) {
+          activateOmnibarItem(omnibarResults[omnibarSelectedIndex]);
+        } else {
+          // No item selected; treat input as URL if non-empty
+          const raw = input.value.trim();
+          if (raw.length > 0) {
+            activateOmnibarItem({ type: 'url', url: normalizeUrl(raw) });
+          }
+        }
+      }
+    });
+  }
+
+  // Close the omnibar
+  function closeOmnibar() {
+    omnibarOpen = false;
+    omnibarResults = [];
+    omnibarSelectedIndex = -1;
+    if (omnibarDebounceTimer) {
+      clearTimeout(omnibarDebounceTimer);
+      omnibarDebounceTimer = null;
+    }
+    if (omnibarOverlay) {
+      omnibarOverlay.remove();
+      omnibarOverlay = null;
+    }
+    if (omnibarContainer) {
+      omnibarContainer.remove();
+      omnibarContainer = null;
+    }
+  }
+
+  // Check whether the input looks like a URL
+  function looksLikeUrl(text) {
+    // Starts with a protocol
+    if (/^[a-zA-Z]+:\/\//.test(text)) return true;
+    // Contains a dot and no spaces (e.g. "example.com", "foo.bar/baz")
+    if (!text.includes(' ') && /\.\w/.test(text)) return true;
+    // localhost with optional port
+    if (/^localhost(:\d+)?/.test(text)) return true;
+    return false;
+  }
+
+  // Normalize URL: add protocol if missing
+  function normalizeUrl(text) {
+    if (/^[a-zA-Z]+:\/\//.test(text)) return text;
+    return 'https://' + text;
+  }
+
+  // Append "Open URL" option if input looks like a URL
+  function appendUrlOption(results, query) {
+    if (query.length > 0 && looksLikeUrl(query)) {
+      const fullUrl = normalizeUrl(query);
+      // Don't add if an existing result already has this exact URL
+      const alreadyPresent = results.some(r => r.url === fullUrl);
+      if (!alreadyPresent) {
+        results.push({
+          type: 'url',
+          title: 'Open ' + fullUrl,
+          url: fullUrl
+        });
+      }
+    }
+    return results;
+  }
+
+  // Render the omnibar dropdown
+  function renderOmnibarResults(container, query) {
+    container.innerHTML = '';
+
+    if (omnibarResults.length === 0 && query && query.length > 0) {
+      // Show "Open as URL" option if input looks like a URL, otherwise empty state
+      if (looksLikeUrl(query)) {
+        const urlItem = buildOmnibarItem({ type: 'url', title: 'Open ' + normalizeUrl(query), url: normalizeUrl(query) }, 0, query);
+        omnibarResults = [{ type: 'url', title: 'Open ' + normalizeUrl(query), url: normalizeUrl(query) }];
+        omnibarSelectedIndex = 0;
+        container.appendChild(urlItem);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'modalbrowsing-omnibar-empty';
+        empty.textContent = 'No matching tabs';
+        container.appendChild(empty);
+      }
+      return;
+    }
+
+    omnibarResults.forEach((item, index) => {
+      const el = buildOmnibarItem(item, index, query);
+      container.appendChild(el);
+    });
+
+    // Scroll selected item into view
+    if (omnibarSelectedIndex >= 0) {
+      const selected = container.children[omnibarSelectedIndex];
+      if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
+  // Build a single omnibar result element
+  function buildOmnibarItem(item, index, query) {
+    const el = document.createElement('div');
+    el.className = 'modalbrowsing-omnibar-item';
+    if (index === omnibarSelectedIndex) {
+      el.classList.add('selected');
+    }
+
+    // Badge
+    const badge = document.createElement('span');
+    badge.className = 'omni-badge ' + item.type;
+    badge.textContent = item.type === 'tab' ? 'Tab' : 'URL';
+    el.appendChild(badge);
+
+    // Text container
+    const textDiv = document.createElement('div');
+    textDiv.className = 'omni-text';
+
+    const titleSpan = document.createElement('div');
+    titleSpan.className = 'omni-title';
+    titleSpan.textContent = item.title || item.url;
+    textDiv.appendChild(titleSpan);
+
+    if (item.type !== 'url') {
+      const urlSpan = document.createElement('div');
+      urlSpan.className = 'omni-url';
+      urlSpan.textContent = item.url;
+      textDiv.appendChild(urlSpan);
+    }
+
+    el.appendChild(textDiv);
+
+    // Click handler
+    el.addEventListener('click', () => {
+      activateOmnibarItem(item);
+    });
+
+    // Hover handler to update selection
+    el.addEventListener('mouseenter', () => {
+      omnibarSelectedIndex = index;
+      // Update selection visuals
+      const parent = el.parentElement;
+      if (parent) {
+        Array.from(parent.children).forEach((child, i) => {
+          child.classList.toggle('selected', i === index);
+        });
+      }
+    });
+
+    return el;
+  }
+
+  // Activate (select) an omnibar item
+  function activateOmnibarItem(item) {
+    closeOmnibar();
+    if (item.type === 'tab') {
+      chrome.runtime.sendMessage({ action: 'omnibarSwitchTab', tabId: item.tabId });
+    } else if (item.type === 'url') {
+      const url = item.url;
+      chrome.runtime.sendMessage({ action: 'omnibarOpenUrl', url: url });
+    }
+  }
+
   // Handle keyboard shortcuts
   function handleKeydown(event) {
+    // Handle Escape from omnibar input specially
+    if (event.key === 'Escape' && omnibarOpen && omnibarContainer && omnibarContainer.contains(event.target)) {
+      closeOmnibar();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Handle Escape from search bar input specially
     if (event.key === 'Escape' && searchOverlay && searchOverlay.contains(event.target)) {
       closeSearchBar(false); // close bar but keep highlights for n/N navigation
@@ -735,9 +1077,9 @@
         handled = true;
         break;
 
-      // Open URL
+      // Omnibar (search tabs, open URL)
       case 'o':
-        openUrlPrompt();
+        openOmnibar();
         handled = true;
         break;
 
