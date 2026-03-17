@@ -37,7 +37,7 @@
 
   // Get all clickable elements
   function getClickableElements() {
-    const selector = 'a, button, input[type="submit"], input[type="button"], [role="button"], [onclick]';
+    const selector = 'a, button, input, textarea, select, [role="button"], [role="textbox"], [role="combobox"], [role="searchbox"], [contenteditable="true"], [onclick]';
     return Array.from(document.querySelectorAll(selector))
       .filter(el => {
         const rect = el.getBoundingClientRect();
@@ -378,10 +378,12 @@
           window.open(match.url, '_blank');
         } else {
           match.element.click();
+          if (isEditableElement(match.element)) match.element.focus();
         }
       } else {
         // Click mode - works for all elements (links, buttons, etc.)
         match.element.click();
+        if (isEditableElement(match.element)) match.element.focus();
       }
       clearLinkHints();
       return;
