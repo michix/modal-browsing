@@ -32,6 +32,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'omnibarOpenUrl') {
     handleOmnibarOpenUrl(message.url, sender.tab).then(sendResponse);
     return true;
+  } else if (message.action === 'getTabGroups') {
+    handleGetTabGroups().then(sendResponse);
+    return true;
+  } else if (message.action === 'moveTabToGroup') {
+    handleMoveTabToGroup(message.groupId, sender.tab).then(sendResponse);
+    return true;
+  } else if (message.action === 'createGroupAndMoveTab') {
+    handleCreateGroupAndMoveTab(message.title, sender.tab).then(sendResponse);
+    return true;
   }
   return true;
 });
@@ -206,5 +215,44 @@ async function handleOmnibarOpenUrl(url, senderTab) {
   } catch (error) {
     console.error('Error opening URL:', error);
     return { success: false };
+  }
+}
+
+// Tab groups: get all tab groups in the current window
+async function handleGetTabGroups() {
+  try {
+    const groups = await chrome.tabGroups.query({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+    const results = groups.map(g => ({
+      id: g.id,
+      title: g.title || '(Unnamed)',
+      color: g.color
+    }));
+    return { success: true, groups: results };
+  } catch (error) {
+    console.error('Error getting tab groups:', error);
+    return { success: false, groups: [] };
+  }
+}
+
+// Tab groups: create a new group with the given title and move the current tab into it
+async function handleCreateGroupAndMoveTab(title, senderTab) {
+  try {
+    const groupId = await chrome.tabs.group({ tabIds: senderTab.id });
+    await chrome.tabGroups.update(groupId, { title: title });
+    return { success: true };
+  } catch (error) {
+    console.error('Error creating tab group:', error);
+    return { success: false, notify: 'Error creating tab group: ' + error.message };
+  }
+}
+
+// Tab groups: move the current tab into a group
+async function handleMoveTabToGroup(groupId, senderTab) {
+  try {
+    await chrome.tabs.group({ tabIds: senderTab.id, groupId: groupId });
+    return { success: true };
+  } catch (error) {
+    console.error('Error moving tab to group:', error);
+    return { success: false, notify: 'Error moving tab to group: ' + error.message };
   }
 }

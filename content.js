@@ -336,6 +336,82 @@
       color: #666;
       font-size: 11px;
     }
+    .modalbrowsing-grouppicker-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 999998;
+    }
+    .modalbrowsing-grouppicker {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 420px;
+      max-width: 90vw;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+    .modalbrowsing-grouppicker input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      background: #1e1e1e;
+      border: none;
+      border-bottom: 1px solid #333;
+      outline: none;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+    }
+    .modalbrowsing-grouppicker input::placeholder {
+      color: #666;
+    }
+    .modalbrowsing-grouppicker-results {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .modalbrowsing-grouppicker-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: #ccc;
+      gap: 10px;
+    }
+    .modalbrowsing-grouppicker-item:hover,
+    .modalbrowsing-grouppicker-item.selected {
+      background: #2a2d32;
+    }
+    .modalbrowsing-grouppicker-item .group-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .modalbrowsing-grouppicker-item .group-name {
+      flex: 1;
+      font-size: 14px;
+      color: #e0e0e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .modalbrowsing-grouppicker-empty {
+      padding: 16px;
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+    }
   `;
   document.head.appendChild(style);
 
@@ -929,6 +1005,267 @@
     }
   }
 
+  // --- Group picker state ---
+  let groupPickerOpen = false;
+  let groupPickerOverlay = null;
+  let groupPickerContainer = null;
+  let groupPickerGroups = [];       // all groups from background
+  let groupPickerFiltered = [];     // filtered list (may include a synthetic 'create' entry)
+  let groupPickerSelectedIndex = -1;
+  let groupPickerQuery = '';        // raw input text for create-new-group
+
+  // Chrome tab group color to CSS hex mapping
+  const groupColorMap = {
+    grey: '#5f6368',
+    blue: '#4285f4',
+    red: '#ea4335',
+    yellow: '#fbbc04',
+    green: '#34a853',
+    pink: '#e8407a',
+    purple: '#a142f4',
+    cyan: '#24c1e0',
+    orange: '#fa903e'
+  };
+
+  function openGroupPicker() {
+    if (groupPickerOpen) return;
+
+    // Fetch tab groups from the background
+    chrome.runtime.sendMessage({ action: 'getTabGroups' }, (response) => {
+      if (!response || !response.success) {
+        showNotification('Could not retrieve tab groups');
+        return;
+      }
+
+      const groups = response.groups;
+
+      if (groups.length === 1) {
+        // Only one group — move tab automatically
+        chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: groups[0].id }, (moveResp) => {
+          if (moveResp && moveResp.success) {
+            showNotification('Moved tab to group: ' + groups[0].title);
+          } else {
+            showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+          }
+        });
+        return;
+      }
+
+      // Show the picker (0 groups = create only, 2+ groups = pick or create)
+      groupPickerOpen = true;
+      groupPickerGroups = groups;
+      groupPickerFiltered = groups.slice();
+      groupPickerSelectedIndex = groups.length > 0 ? 0 : -1;
+
+      // Backdrop overlay
+      groupPickerOverlay = document.createElement('div');
+      groupPickerOverlay.className = 'modalbrowsing-grouppicker-overlay';
+      groupPickerOverlay.addEventListener('click', closeGroupPicker);
+
+      // Main container
+      groupPickerContainer = document.createElement('div');
+      groupPickerContainer.className = 'modalbrowsing-grouppicker';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Move tab to group or type to create...';
+
+      const resultsList = document.createElement('div');
+      resultsList.className = 'modalbrowsing-grouppicker-results';
+
+      groupPickerContainer.appendChild(input);
+      groupPickerContainer.appendChild(resultsList);
+      document.body.appendChild(groupPickerOverlay);
+      document.body.appendChild(groupPickerContainer);
+
+      renderGroupPickerResults(resultsList);
+      input.focus();
+
+      // Filter as user types
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        const query = raw.toLowerCase();
+        groupPickerQuery = raw;
+        if (query.length === 0) {
+          groupPickerFiltered = groupPickerGroups.slice();
+        } else {
+          groupPickerFiltered = groupPickerGroups.filter(g =>
+            g.title.toLowerCase().includes(query)
+          );
+          // Append "Create group" option if no exact match exists
+          const exactMatch = groupPickerGroups.some(g =>
+            g.title.toLowerCase() === query
+          );
+          if (!exactMatch) {
+            groupPickerFiltered.push({
+              type: 'create',
+              title: raw
+            });
+          }
+        }
+        groupPickerSelectedIndex = groupPickerFiltered.length > 0 ? 0 : -1;
+        renderGroupPickerResults(resultsList);
+      });
+
+      // Keyboard navigation
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeGroupPicker();
+          e.preventDefault();
+          e.stopPropagation();
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (groupPickerFiltered.length > 0) {
+            groupPickerSelectedIndex = (groupPickerSelectedIndex + 1) % groupPickerFiltered.length;
+            renderGroupPickerResults(resultsList);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (groupPickerFiltered.length > 0) {
+            groupPickerSelectedIndex = (groupPickerSelectedIndex - 1 + groupPickerFiltered.length) % groupPickerFiltered.length;
+            renderGroupPickerResults(resultsList);
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (groupPickerSelectedIndex >= 0 && groupPickerSelectedIndex < groupPickerFiltered.length) {
+            const chosen = groupPickerFiltered[groupPickerSelectedIndex];
+            closeGroupPicker();
+            if (chosen.type === 'create') {
+              // Create new group and move tab into it
+              chrome.runtime.sendMessage({ action: 'createGroupAndMoveTab', title: chosen.title }, (resp) => {
+                if (resp && resp.success) {
+                  showNotification('Created group and moved tab: ' + chosen.title);
+                } else {
+                  showNotification((resp && resp.notify) || 'Failed to create group');
+                }
+              });
+            } else {
+              // Move tab to existing group
+              chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: chosen.id }, (moveResp) => {
+                if (moveResp && moveResp.success) {
+                  showNotification('Moved tab to group: ' + chosen.title);
+                } else {
+                  showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+                }
+              });
+            }
+          }
+        }
+      });
+    });
+  }
+
+  function closeGroupPicker() {
+    groupPickerOpen = false;
+    groupPickerGroups = [];
+    groupPickerFiltered = [];
+    groupPickerSelectedIndex = -1;
+    groupPickerQuery = '';
+    if (groupPickerOverlay) {
+      groupPickerOverlay.remove();
+      groupPickerOverlay = null;
+    }
+    if (groupPickerContainer) {
+      groupPickerContainer.remove();
+      groupPickerContainer = null;
+    }
+  }
+
+  function renderGroupPickerResults(container) {
+    container.innerHTML = '';
+
+    if (groupPickerFiltered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'modalbrowsing-grouppicker-empty';
+      empty.textContent = 'Type a name to create a new group';
+      container.appendChild(empty);
+      return;
+    }
+
+    groupPickerFiltered.forEach((group, index) => {
+      const el = document.createElement('div');
+      el.className = 'modalbrowsing-grouppicker-item';
+      if (index === groupPickerSelectedIndex) {
+        el.classList.add('selected');
+      }
+
+      if (group.type === 'create') {
+        // "Create new group" item — show a + icon instead of a color dot
+        const plus = document.createElement('span');
+        plus.className = 'group-dot';
+        plus.style.background = 'transparent';
+        plus.style.border = '2px solid #6abf6a';
+        plus.style.lineHeight = '10px';
+        plus.style.textAlign = 'center';
+        plus.style.fontSize = '10px';
+        plus.style.color = '#6abf6a';
+        plus.style.fontWeight = 'bold';
+        plus.textContent = '+';
+        el.appendChild(plus);
+
+        const name = document.createElement('span');
+        name.className = 'group-name';
+        name.style.color = '#6abf6a';
+        name.textContent = 'Create group: ' + group.title;
+        el.appendChild(name);
+      } else {
+        // Existing group — color dot
+        const dot = document.createElement('span');
+        dot.className = 'group-dot';
+        dot.style.background = groupColorMap[group.color] || '#888';
+        el.appendChild(dot);
+
+        const name = document.createElement('span');
+        name.className = 'group-name';
+        name.textContent = group.title;
+        el.appendChild(name);
+      }
+
+      // Click handler
+      el.addEventListener('click', () => {
+        closeGroupPicker();
+        if (group.type === 'create') {
+          chrome.runtime.sendMessage({ action: 'createGroupAndMoveTab', title: group.title }, (resp) => {
+            if (resp && resp.success) {
+              showNotification('Created group and moved tab: ' + group.title);
+            } else {
+              showNotification((resp && resp.notify) || 'Failed to create group');
+            }
+          });
+        } else {
+          chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: group.id }, (moveResp) => {
+            if (moveResp && moveResp.success) {
+              showNotification('Moved tab to group: ' + group.title);
+            } else {
+              showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+            }
+          });
+        }
+      });
+
+      // Hover handler
+      el.addEventListener('mouseenter', () => {
+        groupPickerSelectedIndex = index;
+        const parent = el.parentElement;
+        if (parent) {
+          Array.from(parent.children).forEach((child, i) => {
+            child.classList.toggle('selected', i === index);
+          });
+        }
+      });
+
+      container.appendChild(el);
+    });
+
+    // Scroll selected into view
+    if (groupPickerSelectedIndex >= 0) {
+      const selected = container.children[groupPickerSelectedIndex];
+      if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
   // --- Help overlay state ---
   let helpOpen = false;
   let helpOverlay = null;
@@ -955,6 +1292,7 @@
         ['gg', 'Go to top'], ['G', 'Go to bottom'],
         ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
         ['<<', 'Move tab left'], ['>>', 'Move tab right'],
+        ['gt', 'Move tab to group'],
         ['H', 'Go back in history'], ['L', 'Go forward in history'],
         ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
         ['t', 'Open new tab'], ['x', 'Close tab'],
@@ -1009,6 +1347,14 @@
 
   // Handle keyboard shortcuts
   function handleKeydown(event) {
+    // Handle Escape from group picker input specially
+    if (event.key === 'Escape' && groupPickerOpen && groupPickerContainer && groupPickerContainer.contains(event.target)) {
+      closeGroupPicker();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Handle Escape from omnibar input specially
     if (event.key === 'Escape' && omnibarOpen && omnibarContainer && omnibarContainer.contains(event.target)) {
       closeOmnibar();
@@ -1110,6 +1456,12 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === 't' && !event.shiftKey && lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'gt' sequence - move tab to group
+      openGroupPicker();
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
     } else if (event.key === '<') {
       // '<' is Shift+, on most keyboards, so event.shiftKey is true - that is expected
       if (lastKeyPressed === '<' && (currentTime - lastKeyTime) < keySequenceTimeout) {
@@ -1154,6 +1506,13 @@
 
     // If a sequence key was handled, stop here
     if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 'g' || event.key === '<' || event.key === '>')) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    // If 'gt' sequence was handled, stop here (t alone still falls through to switch)
+    if (handled && event.key === 't') {
       event.preventDefault();
       event.stopPropagation();
       return;
