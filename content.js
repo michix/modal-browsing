@@ -504,20 +504,17 @@
       updateSearchCount(count);
     });
 
-    // Handle Enter (next), Shift+Enter (prev), Escape (close) inside the input
+    // Handle Enter (confirm & close) and Escape (close) inside the input
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSearchBar(false); // keep highlights so n/N can navigate
         e.preventDefault();
         e.stopPropagation();
       } else if (e.key === 'Enter') {
-        if (e.shiftKey) {
-          navigateSearch(-1);
-        } else {
-          navigateSearch(1);
-        }
-        updateSearchCount(count);
+        // Confirm search and return to normal mode
+        closeSearchBar(false); // close bar, keep highlights for n/N navigation
         e.preventDefault();
+        e.stopPropagation();
       }
     });
   }

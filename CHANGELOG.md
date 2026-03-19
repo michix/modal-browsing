@@ -5,6 +5,7 @@
 ### 1.2.0
 
 - (Feature) Searching with `/` is case-insensitive if you only user lower-case letters and case-sensitive otherwise.
+- (Feature) Pressing `<Enter>` in search mode lets you jump between search results using `n` and `<Shift+n>`.
 
 ### 1.1.0
 
