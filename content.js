@@ -545,7 +545,10 @@
 
     if (!query || query.length === 0) return;
 
-    const lowerQuery = query.toLowerCase();
+    // Smart case: case-insensitive if query is all lowercase,
+    // case-sensitive if it contains any uppercase letter
+    const caseSensitive = query !== query.toLowerCase();
+    const compareQuery = caseSensitive ? query : query.toLowerCase();
 
     // Phase 1: Collect all text nodes that contain the query
     const matchData = []; // { node, idx }
@@ -566,7 +569,8 @@
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
             return NodeFilter.FILTER_REJECT;
           }
-          if (node.textContent.toLowerCase().includes(lowerQuery)) {
+          const text = caseSensitive ? node.textContent : node.textContent.toLowerCase();
+          if (text.includes(compareQuery)) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_REJECT;
@@ -576,10 +580,10 @@
 
     let textNode;
     while (textNode = walker.nextNode()) {
-      const lowerText = textNode.textContent.toLowerCase();
+      const text = caseSensitive ? textNode.textContent : textNode.textContent.toLowerCase();
       let startPos = 0;
       while (true) {
-        const idx = lowerText.indexOf(lowerQuery, startPos);
+        const idx = text.indexOf(compareQuery, startPos);
         if (idx === -1) break;
         matchData.push({ node: textNode, idx: idx, length: query.length });
         startPos = idx + query.length;

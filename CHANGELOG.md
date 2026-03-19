@@ -2,6 +2,10 @@
 
 ## Version 1.0
 
+### 1.2.0
+
+- (Feature) Searching with `/` is case-insensitive if you only user lower-case letters and case-sensitive otherwise.
+
 ### 1.1.0
 
 - (Feature) Adds `<<` and `>>` to move tabs.
