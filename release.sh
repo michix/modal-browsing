@@ -49,4 +49,5 @@ git add "manifest.json" &&
   git commit -m "Version $VERSION" &&
   git push &&
   git tag "v$VERSION" &&
-  git push origin "v$VERSION"
+  git push origin "v$VERSION" &&
+  zip -r modal-browsing.zip *.js LICENSE *.json *.html icons
