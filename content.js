@@ -10,7 +10,12 @@
   let lastKeyPressed = null;
   let lastKeyTime = 0;
   const keySequenceTimeout = 1000; // 1 second timeout for key sequences
-  
+
+  // Continuous scroll state
+  const scrollKeys = new Set();    // currently held scroll keys
+  let scrollAnimationId = null;
+  const scrollSpeed = 16;           // pixels per frame for j/k/h/l
+
   // Link hints state
   let linkHintMode = false;
   let linkHints = [];
@@ -31,7 +36,7 @@
     const isInput = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
     const role = (element.getAttribute('role') || '').toLowerCase();
     const isRoleEditable = role === 'textbox' || role === 'combobox' || role === 'searchbox';
-    
+
     return isEditable || isInput || isRoleEditable;
   }
 
@@ -41,18 +46,49 @@
     return Array.from(document.querySelectorAll(selector))
       .filter(el => {
         const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && 
-               rect.top < window.innerHeight && rect.bottom > 0;
+        return rect.width > 0 && rect.height > 0 &&
+          rect.top < window.innerHeight && rect.bottom > 0;
       });
   }
 
-  // Smooth scroll helper
+  // Smooth scroll helper (used for one-shot scrolls like d/u)
   function smoothScroll(x, y) {
     window.scrollBy({
       top: y,
       left: x,
       behavior: 'smooth'
     });
+  }
+
+  // Continuous scroll loop — runs via requestAnimationFrame while scroll keys are held
+  function scrollLoop() {
+    if (scrollKeys.size === 0) {
+      scrollAnimationId = null;
+      return;
+    }
+    let dx = 0;
+    let dy = 0;
+    if (scrollKeys.has('j')) dy += scrollSpeed;
+    if (scrollKeys.has('k')) dy -= scrollSpeed;
+    if (scrollKeys.has('h')) dx -= scrollSpeed;
+    if (scrollKeys.has('l')) dx += scrollSpeed;
+    if (dx !== 0 || dy !== 0) {
+      window.scrollBy(dx, dy);
+    }
+    scrollAnimationId = requestAnimationFrame(scrollLoop);
+  }
+
+  function startScrollKey(key) {
+    if (scrollKeys.has(key)) return; // already held (repeat keydown)
+    scrollKeys.add(key);
+    if (!scrollAnimationId) {
+      scrollAnimationId = requestAnimationFrame(scrollLoop);
+    }
+  }
+
+  function stopScrollKey(key) {
+    scrollKeys.delete(key);
+    // scrollLoop will stop itself when scrollKeys is empty
   }
 
   // Copy to clipboard helper
@@ -86,9 +122,9 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.15);
       animation: slideIn 0.2s ease-out;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
       notification.style.animation = 'slideOut 0.2s ease-out';
       setTimeout(() => notification.remove(), 200);
@@ -419,7 +455,7 @@
   function generateHintLabels(count) {
     const labels = [];
     const chars = 'abcdefghijklmnopqrstuvwxyz';
-    
+
     if (count <= 26) {
       // Single letters are enough
       for (let i = 0; i < count; i++) {
@@ -437,7 +473,7 @@
         }
       }
     }
-    
+
     return labels;
   }
 
@@ -445,7 +481,7 @@
   function showLinkHints(mode = 'click') {
     // Get all clickable elements (links, buttons, etc.)
     const elements = getClickableElements();
-    
+
     if (elements.length === 0) {
       showNotification('No clickable elements found on page');
       return;
@@ -453,7 +489,7 @@
 
     const labels = generateHintLabels(elements.length);
     linkHints = [];
-    
+
     elements.forEach((element, index) => {
       const rect = element.getBoundingClientRect();
       const hint = document.createElement('div');
@@ -461,13 +497,13 @@
       hint.textContent = labels[index];
       hint.style.left = (rect.left + window.scrollX) + 'px';
       hint.style.top = (rect.top + window.scrollY) + 'px';
-      
+
       document.body.appendChild(hint);
       element.classList.add('modalbrowsing-hint-highlight');
-      
+
       // Get URL for links, null for buttons
       const url = element.tagName.toLowerCase() === 'a' ? element.href : null;
-      
+
       linkHints.push({
         label: labels[index],
         element: element,
@@ -476,7 +512,7 @@
         mode: mode
       });
     });
-    
+
     linkHintMode = true;
     hintInput = '';
     const modeText = mode === 'copy' ? 'Copy URL' : (mode === 'newtab' ? 'Open in new tab' : 'Open link');
@@ -497,16 +533,16 @@
   // Handle hint input
   function handleHintInput(key) {
     hintInput += key.toLowerCase();
-    
+
     // Filter matching hints
     const matches = linkHints.filter(hint => hint.label.startsWith(hintInput));
-    
+
     if (matches.length === 0) {
       // No matches, reset
       hintInput = '';
       return;
     }
-    
+
     if (matches.length === 1 && matches[0].label === hintInput) {
       // Exact match - perform action based on mode
       const match = matches[0];
@@ -533,7 +569,7 @@
       clearLinkHints();
       return;
     }
-    
+
     // Update visual feedback - dim non-matching hints
     linkHints.forEach(({ hint, label }) => {
       if (!label.startsWith(hintInput)) {
@@ -634,7 +670,7 @@
           if (!parent) return NodeFilter.FILTER_REJECT;
           // Skip our own UI elements
           if (parent.closest('.modalbrowsing-search-bar') ||
-              parent.closest('.modalbrowsing-hint')) {
+            parent.closest('.modalbrowsing-hint')) {
             return NodeFilter.FILTER_REJECT;
           }
           // Skip script/style
@@ -1283,28 +1319,34 @@
     helpContainer.className = 'modalbrowsing-help';
 
     const shortcuts = [
-      { heading: 'Scrolling', items: [
-        ['j', 'Scroll down'], ['k', 'Scroll up'],
-        ['h', 'Scroll left'], ['l', 'Scroll right'],
-        ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
-      ]},
-      { heading: 'Navigation', items: [
-        ['gg', 'Go to top'], ['G', 'Go to bottom'],
-        ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
-        ['<', 'Move tab left'], ['>', 'Move tab right'],
-        ['gt', 'Move tab to group'],
-        ['H', 'Go back in history'], ['L', 'Go forward in history'],
-        ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
-        ['t', 'Open new tab'], ['x', 'Close tab'],
-        ['X', 'Reopen last closed tab'],
-      ]},
-      { heading: 'Other', items: [
-        ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
-        ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
-        ['i', 'Focus first input'], ['/', 'Search page'],
-        ['n', 'Next search match'], ['N', 'Previous search match'],
-        ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
-      ]},
+      {
+        heading: 'Scrolling', items: [
+          ['j', 'Scroll down'], ['k', 'Scroll up'],
+          ['h', 'Scroll left'], ['l', 'Scroll right'],
+          ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
+        ]
+      },
+      {
+        heading: 'Navigation', items: [
+          ['gg', 'Go to top'], ['G', 'Go to bottom'],
+          ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
+          ['<', 'Move tab left'], ['>', 'Move tab right'],
+          ['gt', 'Move tab to group'],
+          ['H', 'Go back in history'], ['L', 'Go forward in history'],
+          ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
+          ['t', 'Open new tab'], ['x', 'Close tab'],
+          ['X', 'Reopen last closed tab'],
+        ]
+      },
+      {
+        heading: 'Other', items: [
+          ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
+          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
+          ['i', 'Focus first input'], ['/', 'Search page'],
+          ['n', 'Next search match'], ['N', 'Previous search match'],
+          ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
+        ]
+      },
     ];
 
     const title = document.createElement('h2');
@@ -1498,22 +1540,22 @@
       return;
     }
 
-    switch(event.key) {
-      // Scrolling
+    switch (event.key) {
+      // Scrolling (continuous while held)
       case 'j':
-        smoothScroll(0, scrollStep);
+        startScrollKey('j');
         handled = true;
         break;
       case 'k':
-        smoothScroll(0, -scrollStep);
+        startScrollKey('k');
         handled = true;
         break;
       case 'h':
-        smoothScroll(-scrollStep, 0);
+        startScrollKey('h');
         handled = true;
         break;
       case 'l':
-        smoothScroll(scrollStep, 0);
+        startScrollKey('l');
         handled = true;
         break;
 
@@ -1662,6 +1704,18 @@
 
   // Listen for keyboard events
   document.addEventListener('keydown', handleKeydown, true);
+
+  // Stop continuous scrolling when scroll keys are released
+  document.addEventListener('keyup', (event) => {
+    if (scrollKeys.has(event.key)) {
+      stopScrollKey(event.key);
+    }
+  }, true);
+
+  // Stop all scrolling if the window loses focus (e.g. Alt+Tab)
+  window.addEventListener('blur', () => {
+    scrollKeys.clear();
+  });
 
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
