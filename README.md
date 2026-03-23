@@ -36,8 +36,8 @@ You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedg
 - `G` (Shift+g) - Go to bottom of page
 - `J` (Shift+j) - Switch to left tab
 - `K` (Shift+k) - Switch to right tab
-- `<<` - Move current tab to the left
-- `>>` - Move current tab to the right
+- `<` - Move current tab to the left
+- `>` - Move current tab to the right
 - `gt` - Move current tab to a tab group (auto-moves if only one group, otherwise shows picker)
 - `H` (Shift+h) - Go back in browser history
 - `L` (Shift+l) - Go forward in browser history

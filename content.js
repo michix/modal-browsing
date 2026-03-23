@@ -1291,7 +1291,7 @@
       { heading: 'Navigation', items: [
         ['gg', 'Go to top'], ['G', 'Go to bottom'],
         ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
-        ['<<', 'Move tab left'], ['>>', 'Move tab right'],
+        ['<', 'Move tab left'], ['>', 'Move tab right'],
         ['gt', 'Move tab to group'],
         ['H', 'Go back in history'], ['L', 'Go forward in history'],
         ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
@@ -1413,7 +1413,7 @@
       return;
     }
 
-    // Check for 'yy', 'yf', 'gg', '<<', and '>>' sequences
+    // Check for 'yy', 'yf', 'gg', 'gt', '<', and '>' sequences/keys
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
@@ -1463,37 +1463,17 @@
       lastKeyPressed = null;
       lastKeyTime = 0;
     } else if (event.key === '<') {
-      // '<' is Shift+, on most keyboards, so event.shiftKey is true - that is expected
-      if (lastKeyPressed === '<' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-        // Second '<' pressed - move tab left
-        chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
-          if (response && response.notify) showNotification(response.notify);
-        });
-        handled = true;
-        lastKeyPressed = null;
-        lastKeyTime = 0;
-      } else {
-        // First '<' pressed
-        lastKeyPressed = '<';
-        lastKeyTime = currentTime;
-        handled = true;
-      }
+      // Single '<' - move tab left
+      chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
     } else if (event.key === '>') {
-      // '>' is Shift+. on most keyboards, so event.shiftKey is true - that is expected
-      if (lastKeyPressed === '>' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-        // Second '>' pressed - move tab right
-        chrome.runtime.sendMessage({ action: 'moveTabRight' }, (response) => {
-          if (response && response.notify) showNotification(response.notify);
-        });
-        handled = true;
-        lastKeyPressed = null;
-        lastKeyTime = 0;
-      } else {
-        // First '>' pressed
-        lastKeyPressed = '>';
-        lastKeyTime = currentTime;
-        handled = true;
-      }
+      // Single '>' - move tab right
+      chrome.runtime.sendMessage({ action: 'moveTabRight' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
     } else {
       // Reset sequence if a different key is pressed
       if (lastKeyPressed && (currentTime - lastKeyTime) < keySequenceTimeout) {
