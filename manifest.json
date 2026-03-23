@@ -7,7 +7,8 @@
     "activeTab",
     "storage",
     "tabs",
-    "clipboardWrite"
+    "clipboardWrite",
+    "tabGroups"
   ],
   "background": {
     "service_worker": "background.js"

@@ -10,7 +10,12 @@
   let lastKeyPressed = null;
   let lastKeyTime = 0;
   const keySequenceTimeout = 1000; // 1 second timeout for key sequences
-  
+
+  // Continuous scroll state
+  const scrollKeys = new Set();    // currently held scroll keys
+  let scrollAnimationId = null;
+  const scrollSpeed = 16;           // pixels per frame for j/k/h/l
+
   // Link hints state
   let linkHintMode = false;
   let linkHints = [];
@@ -31,7 +36,7 @@
     const isInput = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
     const role = (element.getAttribute('role') || '').toLowerCase();
     const isRoleEditable = role === 'textbox' || role === 'combobox' || role === 'searchbox';
-    
+
     return isEditable || isInput || isRoleEditable;
   }
 
@@ -41,18 +46,49 @@
     return Array.from(document.querySelectorAll(selector))
       .filter(el => {
         const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && 
-               rect.top < window.innerHeight && rect.bottom > 0;
+        return rect.width > 0 && rect.height > 0 &&
+          rect.top < window.innerHeight && rect.bottom > 0;
       });
   }
 
-  // Smooth scroll helper
+  // Smooth scroll helper (used for one-shot scrolls like d/u)
   function smoothScroll(x, y) {
     window.scrollBy({
       top: y,
       left: x,
       behavior: 'smooth'
     });
+  }
+
+  // Continuous scroll loop — runs via requestAnimationFrame while scroll keys are held
+  function scrollLoop() {
+    if (scrollKeys.size === 0) {
+      scrollAnimationId = null;
+      return;
+    }
+    let dx = 0;
+    let dy = 0;
+    if (scrollKeys.has('j')) dy += scrollSpeed;
+    if (scrollKeys.has('k')) dy -= scrollSpeed;
+    if (scrollKeys.has('h')) dx -= scrollSpeed;
+    if (scrollKeys.has('l')) dx += scrollSpeed;
+    if (dx !== 0 || dy !== 0) {
+      window.scrollBy(dx, dy);
+    }
+    scrollAnimationId = requestAnimationFrame(scrollLoop);
+  }
+
+  function startScrollKey(key) {
+    if (scrollKeys.has(key)) return; // already held (repeat keydown)
+    scrollKeys.add(key);
+    if (!scrollAnimationId) {
+      scrollAnimationId = requestAnimationFrame(scrollLoop);
+    }
+  }
+
+  function stopScrollKey(key) {
+    scrollKeys.delete(key);
+    // scrollLoop will stop itself when scrollKeys is empty
   }
 
   // Copy to clipboard helper
@@ -86,9 +122,9 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.15);
       animation: slideIn 0.2s ease-out;
     `;
-    
+
     document.body.appendChild(notification);
-    
+
     setTimeout(() => {
       notification.style.animation = 'slideOut 0.2s ease-out';
       setTimeout(() => notification.remove(), 200);
@@ -336,6 +372,82 @@
       color: #666;
       font-size: 11px;
     }
+    .modalbrowsing-grouppicker-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      z-index: 999998;
+    }
+    .modalbrowsing-grouppicker {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 420px;
+      max-width: 90vw;
+      z-index: 999999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: #1e1e1e;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+    }
+    .modalbrowsing-grouppicker input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      background: #1e1e1e;
+      border: none;
+      border-bottom: 1px solid #333;
+      outline: none;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+    }
+    .modalbrowsing-grouppicker input::placeholder {
+      color: #666;
+    }
+    .modalbrowsing-grouppicker-results {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .modalbrowsing-grouppicker-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 16px;
+      cursor: pointer;
+      color: #ccc;
+      gap: 10px;
+    }
+    .modalbrowsing-grouppicker-item:hover,
+    .modalbrowsing-grouppicker-item.selected {
+      background: #2a2d32;
+    }
+    .modalbrowsing-grouppicker-item .group-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .modalbrowsing-grouppicker-item .group-name {
+      flex: 1;
+      font-size: 14px;
+      color: #e0e0e0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .modalbrowsing-grouppicker-empty {
+      padding: 16px;
+      text-align: center;
+      color: #666;
+      font-size: 13px;
+    }
   `;
   document.head.appendChild(style);
 
@@ -343,7 +455,7 @@
   function generateHintLabels(count) {
     const labels = [];
     const chars = 'abcdefghijklmnopqrstuvwxyz';
-    
+
     if (count <= 26) {
       // Single letters are enough
       for (let i = 0; i < count; i++) {
@@ -361,7 +473,7 @@
         }
       }
     }
-    
+
     return labels;
   }
 
@@ -369,7 +481,7 @@
   function showLinkHints(mode = 'click') {
     // Get all clickable elements (links, buttons, etc.)
     const elements = getClickableElements();
-    
+
     if (elements.length === 0) {
       showNotification('No clickable elements found on page');
       return;
@@ -377,7 +489,7 @@
 
     const labels = generateHintLabels(elements.length);
     linkHints = [];
-    
+
     elements.forEach((element, index) => {
       const rect = element.getBoundingClientRect();
       const hint = document.createElement('div');
@@ -385,13 +497,13 @@
       hint.textContent = labels[index];
       hint.style.left = (rect.left + window.scrollX) + 'px';
       hint.style.top = (rect.top + window.scrollY) + 'px';
-      
+
       document.body.appendChild(hint);
       element.classList.add('modalbrowsing-hint-highlight');
-      
+
       // Get URL for links, null for buttons
       const url = element.tagName.toLowerCase() === 'a' ? element.href : null;
-      
+
       linkHints.push({
         label: labels[index],
         element: element,
@@ -400,7 +512,7 @@
         mode: mode
       });
     });
-    
+
     linkHintMode = true;
     hintInput = '';
     const modeText = mode === 'copy' ? 'Copy URL' : (mode === 'newtab' ? 'Open in new tab' : 'Open link');
@@ -421,16 +533,16 @@
   // Handle hint input
   function handleHintInput(key) {
     hintInput += key.toLowerCase();
-    
+
     // Filter matching hints
     const matches = linkHints.filter(hint => hint.label.startsWith(hintInput));
-    
+
     if (matches.length === 0) {
       // No matches, reset
       hintInput = '';
       return;
     }
-    
+
     if (matches.length === 1 && matches[0].label === hintInput) {
       // Exact match - perform action based on mode
       const match = matches[0];
@@ -457,7 +569,7 @@
       clearLinkHints();
       return;
     }
-    
+
     // Update visual feedback - dim non-matching hints
     linkHints.forEach(({ hint, label }) => {
       if (!label.startsWith(hintInput)) {
@@ -504,20 +616,17 @@
       updateSearchCount(count);
     });
 
-    // Handle Enter (next), Shift+Enter (prev), Escape (close) inside the input
+    // Handle Enter (confirm & close) and Escape (close) inside the input
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSearchBar(false); // keep highlights so n/N can navigate
         e.preventDefault();
         e.stopPropagation();
       } else if (e.key === 'Enter') {
-        if (e.shiftKey) {
-          navigateSearch(-1);
-        } else {
-          navigateSearch(1);
-        }
-        updateSearchCount(count);
+        // Confirm search and return to normal mode
+        closeSearchBar(false); // close bar, keep highlights for n/N navigation
         e.preventDefault();
+        e.stopPropagation();
       }
     });
   }
@@ -545,7 +654,10 @@
 
     if (!query || query.length === 0) return;
 
-    const lowerQuery = query.toLowerCase();
+    // Smart case: case-insensitive if query is all lowercase,
+    // case-sensitive if it contains any uppercase letter
+    const caseSensitive = query !== query.toLowerCase();
+    const compareQuery = caseSensitive ? query : query.toLowerCase();
 
     // Phase 1: Collect all text nodes that contain the query
     const matchData = []; // { node, idx }
@@ -558,7 +670,7 @@
           if (!parent) return NodeFilter.FILTER_REJECT;
           // Skip our own UI elements
           if (parent.closest('.modalbrowsing-search-bar') ||
-              parent.closest('.modalbrowsing-hint')) {
+            parent.closest('.modalbrowsing-hint')) {
             return NodeFilter.FILTER_REJECT;
           }
           // Skip script/style
@@ -566,7 +678,8 @@
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
             return NodeFilter.FILTER_REJECT;
           }
-          if (node.textContent.toLowerCase().includes(lowerQuery)) {
+          const text = caseSensitive ? node.textContent : node.textContent.toLowerCase();
+          if (text.includes(compareQuery)) {
             return NodeFilter.FILTER_ACCEPT;
           }
           return NodeFilter.FILTER_REJECT;
@@ -576,10 +689,10 @@
 
     let textNode;
     while (textNode = walker.nextNode()) {
-      const lowerText = textNode.textContent.toLowerCase();
+      const text = caseSensitive ? textNode.textContent : textNode.textContent.toLowerCase();
       let startPos = 0;
       while (true) {
-        const idx = lowerText.indexOf(lowerQuery, startPos);
+        const idx = text.indexOf(compareQuery, startPos);
         if (idx === -1) break;
         matchData.push({ node: textNode, idx: idx, length: query.length });
         startPos = idx + query.length;
@@ -928,6 +1041,267 @@
     }
   }
 
+  // --- Group picker state ---
+  let groupPickerOpen = false;
+  let groupPickerOverlay = null;
+  let groupPickerContainer = null;
+  let groupPickerGroups = [];       // all groups from background
+  let groupPickerFiltered = [];     // filtered list (may include a synthetic 'create' entry)
+  let groupPickerSelectedIndex = -1;
+  let groupPickerQuery = '';        // raw input text for create-new-group
+
+  // Chrome tab group color to CSS hex mapping
+  const groupColorMap = {
+    grey: '#5f6368',
+    blue: '#4285f4',
+    red: '#ea4335',
+    yellow: '#fbbc04',
+    green: '#34a853',
+    pink: '#e8407a',
+    purple: '#a142f4',
+    cyan: '#24c1e0',
+    orange: '#fa903e'
+  };
+
+  function openGroupPicker() {
+    if (groupPickerOpen) return;
+
+    // Fetch tab groups from the background
+    chrome.runtime.sendMessage({ action: 'getTabGroups' }, (response) => {
+      if (!response || !response.success) {
+        showNotification('Could not retrieve tab groups');
+        return;
+      }
+
+      const groups = response.groups;
+
+      if (groups.length === 1) {
+        // Only one group — move tab automatically
+        chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: groups[0].id }, (moveResp) => {
+          if (moveResp && moveResp.success) {
+            showNotification('Moved tab to group: ' + groups[0].title);
+          } else {
+            showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+          }
+        });
+        return;
+      }
+
+      // Show the picker (0 groups = create only, 2+ groups = pick or create)
+      groupPickerOpen = true;
+      groupPickerGroups = groups;
+      groupPickerFiltered = groups.slice();
+      groupPickerSelectedIndex = groups.length > 0 ? 0 : -1;
+
+      // Backdrop overlay
+      groupPickerOverlay = document.createElement('div');
+      groupPickerOverlay.className = 'modalbrowsing-grouppicker-overlay';
+      groupPickerOverlay.addEventListener('click', closeGroupPicker);
+
+      // Main container
+      groupPickerContainer = document.createElement('div');
+      groupPickerContainer.className = 'modalbrowsing-grouppicker';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = 'Move tab to group or type to create...';
+
+      const resultsList = document.createElement('div');
+      resultsList.className = 'modalbrowsing-grouppicker-results';
+
+      groupPickerContainer.appendChild(input);
+      groupPickerContainer.appendChild(resultsList);
+      document.body.appendChild(groupPickerOverlay);
+      document.body.appendChild(groupPickerContainer);
+
+      renderGroupPickerResults(resultsList);
+      input.focus();
+
+      // Filter as user types
+      input.addEventListener('input', () => {
+        const raw = input.value.trim();
+        const query = raw.toLowerCase();
+        groupPickerQuery = raw;
+        if (query.length === 0) {
+          groupPickerFiltered = groupPickerGroups.slice();
+        } else {
+          groupPickerFiltered = groupPickerGroups.filter(g =>
+            g.title.toLowerCase().includes(query)
+          );
+          // Append "Create group" option if no exact match exists
+          const exactMatch = groupPickerGroups.some(g =>
+            g.title.toLowerCase() === query
+          );
+          if (!exactMatch) {
+            groupPickerFiltered.push({
+              type: 'create',
+              title: raw
+            });
+          }
+        }
+        groupPickerSelectedIndex = groupPickerFiltered.length > 0 ? 0 : -1;
+        renderGroupPickerResults(resultsList);
+      });
+
+      // Keyboard navigation
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeGroupPicker();
+          e.preventDefault();
+          e.stopPropagation();
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (groupPickerFiltered.length > 0) {
+            groupPickerSelectedIndex = (groupPickerSelectedIndex + 1) % groupPickerFiltered.length;
+            renderGroupPickerResults(resultsList);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (groupPickerFiltered.length > 0) {
+            groupPickerSelectedIndex = (groupPickerSelectedIndex - 1 + groupPickerFiltered.length) % groupPickerFiltered.length;
+            renderGroupPickerResults(resultsList);
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (groupPickerSelectedIndex >= 0 && groupPickerSelectedIndex < groupPickerFiltered.length) {
+            const chosen = groupPickerFiltered[groupPickerSelectedIndex];
+            closeGroupPicker();
+            if (chosen.type === 'create') {
+              // Create new group and move tab into it
+              chrome.runtime.sendMessage({ action: 'createGroupAndMoveTab', title: chosen.title }, (resp) => {
+                if (resp && resp.success) {
+                  showNotification('Created group and moved tab: ' + chosen.title);
+                } else {
+                  showNotification((resp && resp.notify) || 'Failed to create group');
+                }
+              });
+            } else {
+              // Move tab to existing group
+              chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: chosen.id }, (moveResp) => {
+                if (moveResp && moveResp.success) {
+                  showNotification('Moved tab to group: ' + chosen.title);
+                } else {
+                  showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+                }
+              });
+            }
+          }
+        }
+      });
+    });
+  }
+
+  function closeGroupPicker() {
+    groupPickerOpen = false;
+    groupPickerGroups = [];
+    groupPickerFiltered = [];
+    groupPickerSelectedIndex = -1;
+    groupPickerQuery = '';
+    if (groupPickerOverlay) {
+      groupPickerOverlay.remove();
+      groupPickerOverlay = null;
+    }
+    if (groupPickerContainer) {
+      groupPickerContainer.remove();
+      groupPickerContainer = null;
+    }
+  }
+
+  function renderGroupPickerResults(container) {
+    container.innerHTML = '';
+
+    if (groupPickerFiltered.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'modalbrowsing-grouppicker-empty';
+      empty.textContent = 'Type a name to create a new group';
+      container.appendChild(empty);
+      return;
+    }
+
+    groupPickerFiltered.forEach((group, index) => {
+      const el = document.createElement('div');
+      el.className = 'modalbrowsing-grouppicker-item';
+      if (index === groupPickerSelectedIndex) {
+        el.classList.add('selected');
+      }
+
+      if (group.type === 'create') {
+        // "Create new group" item — show a + icon instead of a color dot
+        const plus = document.createElement('span');
+        plus.className = 'group-dot';
+        plus.style.background = 'transparent';
+        plus.style.border = '2px solid #6abf6a';
+        plus.style.lineHeight = '10px';
+        plus.style.textAlign = 'center';
+        plus.style.fontSize = '10px';
+        plus.style.color = '#6abf6a';
+        plus.style.fontWeight = 'bold';
+        plus.textContent = '+';
+        el.appendChild(plus);
+
+        const name = document.createElement('span');
+        name.className = 'group-name';
+        name.style.color = '#6abf6a';
+        name.textContent = 'Create group: ' + group.title;
+        el.appendChild(name);
+      } else {
+        // Existing group — color dot
+        const dot = document.createElement('span');
+        dot.className = 'group-dot';
+        dot.style.background = groupColorMap[group.color] || '#888';
+        el.appendChild(dot);
+
+        const name = document.createElement('span');
+        name.className = 'group-name';
+        name.textContent = group.title;
+        el.appendChild(name);
+      }
+
+      // Click handler
+      el.addEventListener('click', () => {
+        closeGroupPicker();
+        if (group.type === 'create') {
+          chrome.runtime.sendMessage({ action: 'createGroupAndMoveTab', title: group.title }, (resp) => {
+            if (resp && resp.success) {
+              showNotification('Created group and moved tab: ' + group.title);
+            } else {
+              showNotification((resp && resp.notify) || 'Failed to create group');
+            }
+          });
+        } else {
+          chrome.runtime.sendMessage({ action: 'moveTabToGroup', groupId: group.id }, (moveResp) => {
+            if (moveResp && moveResp.success) {
+              showNotification('Moved tab to group: ' + group.title);
+            } else {
+              showNotification((moveResp && moveResp.notify) || 'Failed to move tab to group');
+            }
+          });
+        }
+      });
+
+      // Hover handler
+      el.addEventListener('mouseenter', () => {
+        groupPickerSelectedIndex = index;
+        const parent = el.parentElement;
+        if (parent) {
+          Array.from(parent.children).forEach((child, i) => {
+            child.classList.toggle('selected', i === index);
+          });
+        }
+      });
+
+      container.appendChild(el);
+    });
+
+    // Scroll selected into view
+    if (groupPickerSelectedIndex >= 0) {
+      const selected = container.children[groupPickerSelectedIndex];
+      if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }
+
   // --- Help overlay state ---
   let helpOpen = false;
   let helpOverlay = null;
@@ -945,27 +1319,34 @@
     helpContainer.className = 'modalbrowsing-help';
 
     const shortcuts = [
-      { heading: 'Scrolling', items: [
-        ['j', 'Scroll down'], ['k', 'Scroll up'],
-        ['h', 'Scroll left'], ['l', 'Scroll right'],
-        ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
-      ]},
-      { heading: 'Navigation', items: [
-        ['gg', 'Go to top'], ['G', 'Go to bottom'],
-        ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
-        ['<<', 'Move tab left'], ['>>', 'Move tab right'],
-        ['H', 'Go back in history'], ['L', 'Go forward in history'],
-        ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
-        ['t', 'Open new tab'], ['x', 'Close tab'],
-        ['X', 'Reopen last closed tab'],
-      ]},
-      { heading: 'Other', items: [
-        ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
-        ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
-        ['i', 'Focus first input'], ['/', 'Search page'],
-        ['n', 'Next search match'], ['N', 'Previous search match'],
-        ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
-      ]},
+      {
+        heading: 'Scrolling', items: [
+          ['j', 'Scroll down'], ['k', 'Scroll up'],
+          ['h', 'Scroll left'], ['l', 'Scroll right'],
+          ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
+        ]
+      },
+      {
+        heading: 'Navigation', items: [
+          ['gg', 'Go to top'], ['G', 'Go to bottom'],
+          ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
+          ['<', 'Move tab left'], ['>', 'Move tab right'],
+          ['gt', 'Move tab to group'],
+          ['H', 'Go back in history'], ['L', 'Go forward in history'],
+          ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
+          ['t', 'Open new tab'], ['x', 'Close tab'],
+          ['X', 'Reopen last closed tab'],
+        ]
+      },
+      {
+        heading: 'Other', items: [
+          ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
+          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
+          ['i', 'Focus first input'], ['/', 'Search page'],
+          ['n', 'Next search match'], ['N', 'Previous search match'],
+          ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
+        ]
+      },
     ];
 
     const title = document.createElement('h2');
@@ -1008,6 +1389,14 @@
 
   // Handle keyboard shortcuts
   function handleKeydown(event) {
+    // Handle Escape from group picker input specially
+    if (event.key === 'Escape' && groupPickerOpen && groupPickerContainer && groupPickerContainer.contains(event.target)) {
+      closeGroupPicker();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     // Handle Escape from omnibar input specially
     if (event.key === 'Escape' && omnibarOpen && omnibarContainer && omnibarContainer.contains(event.target)) {
       closeOmnibar();
@@ -1066,7 +1455,7 @@
       return;
     }
 
-    // Check for 'yy', 'yf', 'gg', '<<', and '>>' sequences
+    // Check for 'yy', 'yf', 'gg', 'gt', '<', and '>' sequences/keys
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
@@ -1109,38 +1498,24 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === 't' && !event.shiftKey && lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'gt' sequence - move tab to group
+      openGroupPicker();
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
     } else if (event.key === '<') {
-      // '<' is Shift+, on most keyboards, so event.shiftKey is true - that is expected
-      if (lastKeyPressed === '<' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-        // Second '<' pressed - move tab left
-        chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
-          if (response && response.notify) showNotification(response.notify);
-        });
-        handled = true;
-        lastKeyPressed = null;
-        lastKeyTime = 0;
-      } else {
-        // First '<' pressed
-        lastKeyPressed = '<';
-        lastKeyTime = currentTime;
-        handled = true;
-      }
+      // Single '<' - move tab left
+      chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
     } else if (event.key === '>') {
-      // '>' is Shift+. on most keyboards, so event.shiftKey is true - that is expected
-      if (lastKeyPressed === '>' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-        // Second '>' pressed - move tab right
-        chrome.runtime.sendMessage({ action: 'moveTabRight' }, (response) => {
-          if (response && response.notify) showNotification(response.notify);
-        });
-        handled = true;
-        lastKeyPressed = null;
-        lastKeyTime = 0;
-      } else {
-        // First '>' pressed
-        lastKeyPressed = '>';
-        lastKeyTime = currentTime;
-        handled = true;
-      }
+      // Single '>' - move tab right
+      chrome.runtime.sendMessage({ action: 'moveTabRight' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
     } else {
       // Reset sequence if a different key is pressed
       if (lastKeyPressed && (currentTime - lastKeyTime) < keySequenceTimeout) {
@@ -1158,22 +1533,29 @@
       return;
     }
 
-    switch(event.key) {
-      // Scrolling
+    // If 'gt' sequence was handled, stop here (t alone still falls through to switch)
+    if (handled && event.key === 't') {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    switch (event.key) {
+      // Scrolling (continuous while held)
       case 'j':
-        smoothScroll(0, scrollStep);
+        startScrollKey('j');
         handled = true;
         break;
       case 'k':
-        smoothScroll(0, -scrollStep);
+        startScrollKey('k');
         handled = true;
         break;
       case 'h':
-        smoothScroll(-scrollStep, 0);
+        startScrollKey('h');
         handled = true;
         break;
       case 'l':
-        smoothScroll(scrollStep, 0);
+        startScrollKey('l');
         handled = true;
         break;
 
@@ -1322,6 +1704,18 @@
 
   // Listen for keyboard events
   document.addEventListener('keydown', handleKeydown, true);
+
+  // Stop continuous scrolling when scroll keys are released
+  document.addEventListener('keyup', (event) => {
+    if (scrollKeys.has(event.key)) {
+      stopScrollKey(event.key);
+    }
+  }, true);
+
+  // Stop all scrolling if the window loses focus (e.g. Alt+Tab)
+  window.addEventListener('blur', () => {
+    scrollKeys.clear();
+  });
 
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

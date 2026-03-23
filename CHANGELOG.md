@@ -2,6 +2,14 @@
 
 ## Version 1.0
 
+### 1.2.0
+
+- (Feature) Searching with `/` is case-insensitive if you only user lower-case letters and case-sensitive otherwise.
+- (Feature) Pressing `<Enter>` in search mode lets you jump between search results using `n` and `<Shift+n>`.
+- (Feature) Allows to move tabs to tab groups using `gt`.
+- (Misc) Uses `<` and `>` to move tabs (instead of `<<` and `>>`).
+- (Misc) Makes scrolling with `h`, `j`, `k`, `l` held smoother.
+
 ### 1.1.0
 
 - (Feature) Adds `<<` and `>>` to move tabs.
