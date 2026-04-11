@@ -156,10 +156,13 @@
       box-shadow: 0 2px 4px rgba(0,0,0,0.3);
       pointer-events: none;
       text-transform: lowercase;
+      opacity: 0.75;
+    }
+    .modalbrowsing-hint-matched {
+      color: #FF4500;
     }
     .modalbrowsing-hint-highlight {
-      outline: 2px solid #FFD700 !important;
-      outline-offset: 2px;
+      background-image: linear-gradient(to bottom, transparent 50%, rgba(255, 215, 0, 0.5) 50%) !important;
     }
     .modalbrowsing-search-bar {
       position: fixed;
@@ -570,12 +573,16 @@
       return;
     }
 
-    // Update visual feedback - dim non-matching hints
+    // Update visual feedback - dim non-matching hints, highlight matched prefix
     linkHints.forEach(({ hint, label }) => {
       if (!label.startsWith(hintInput)) {
         hint.style.opacity = '0.3';
+        hint.textContent = label;
       } else {
         hint.style.opacity = '1';
+        const matched = label.substring(0, hintInput.length);
+        const remaining = label.substring(hintInput.length);
+        hint.innerHTML = '<span class="modalbrowsing-hint-matched">' + matched + '</span>' + remaining;
       }
     });
   }
@@ -1488,7 +1495,7 @@
     } else if (event.key === 'g' && !event.shiftKey) {
       if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'g' pressed - go to top
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0 });
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
@@ -1573,7 +1580,7 @@
       case 'G':
         if (event.shiftKey) {
           // G - scroll to bottom
-          window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+          window.scrollTo({ top: document.body.scrollHeight });
           handled = true;
         }
         break;
@@ -1642,7 +1649,7 @@
 
       // Focus first input
       case 'i':
-        const firstInput = document.querySelector('input:not([type="hidden"]), textarea');
+        const firstInput = document.querySelector('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="image"]):not([type="file"]):not([type="range"]):not([type="color"]), textarea, [contenteditable="true"], [role="textbox"]');
         if (firstInput) {
           firstInput.focus();
           handled = true;

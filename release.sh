@@ -50,4 +50,4 @@ git add "manifest.json" &&
   git push &&
   git tag "v$VERSION" &&
   git push origin "v$VERSION" &&
-  zip -r modal-browsing.zip *.js LICENSE *.json *.html icons
+  zip -r "modal-browsing-$VERSION.zip" *.js LICENSE *.json *.html icons

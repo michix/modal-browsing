@@ -1,235 +1,157 @@
 # AGENTS.md - ModalBrowsing Development Guide
 
-This guide is for AI coding agents working on the ModalBrowsing browser extension project.
+Guide for AI coding agents working on this Chrome/Edge browser extension (Manifest V3).
+Vim-style modal keyboard navigation for web pages. Privacy-focused, zero telemetry.
 
-## Project Overview
+## Project Structure
 
-ModalBrowsing is a privacy-focused browser extension providing Vim-style keyboard navigation for web pages. It uses Chrome Extension Manifest V3 and consists of:
-- **content.js** - Content script injected into pages for keyboard handling
-- **background.js** - Service worker for tab management operations
-- **popup.html/popup.js** - Extension popup UI
-- **manifest.json** - Extension configuration
+```
+manifest.json       # Extension config (Manifest V3, version managed by release.sh)
+content.js          # Content script: keyboard handling, link hints, search, omnibar, UI
+background.js       # Service worker: tab ops, message handling, omnibar search
+popup.html          # Extension popup with toggle + shortcut reference (inline CSS)
+popup.js            # Popup toggle logic
+icons/              # icon.svg source + generated PNGs (16, 48, 128)
+package.sh          # ZIP packaging for distribution
+release.sh          # Version bump, git tag, ZIP release automation
+```
 
 ## Build & Test Commands
 
-This is a vanilla JavaScript project with no build system. Development workflow:
+No build system, no package.json, no linter, no test framework. Vanilla JS loaded directly.
 
 ```bash
-# No build step required - load directly in browser
+# Load extension: edge://extensions/ → Developer mode → Load unpacked → select repo dir
+# Reload after changes: click reload icon on edge://extensions/
 
-# Install in Microsoft Edge (or Chrome)
-# 1. Navigate to edge://extensions/
-# 2. Enable "Developer mode"
-# 3. Click "Load unpacked"
-# 4. Select the project directory
-
-# Reload extension after changes
-# Go to edge://extensions/ and click the reload icon
-
-# Convert icons (if modifying icons)
+# Generate icons from SVG (requires ImageMagick)
 magick icons/icon.svg -resize 16x16 icons/icon16.png
 magick icons/icon.svg -resize 48x48 icons/icon48.png
 magick icons/icon.svg -resize 128x128 icons/icon128.png
 
-# No automated tests exist - manual testing required
-# Test by loading extension and using keyboard shortcuts
+# Package for distribution
+bash package.sh
+
+# Release (bumps manifest version, commits, tags, packages)
+bash release.sh <version>   # e.g. bash release.sh 1.3.0
 ```
 
-## Code Style Guidelines
+No automated tests exist. All testing is manual:
+- Load extension in Edge/Chrome developer mode
+- Test keyboard shortcuts on multiple sites (simple HTML, complex SPAs)
+- Verify input fields are not intercepted (type in forms, contenteditable)
+- Check browser console (F12) for errors
+- Test edge cases: empty pages, iframes, pages with many links
 
-### General Principles
+## Code Style
 
-- **Privacy First**: Minimal permissions, no telemetry, no external requests
-- **Vim Philosophy**: Modal navigation, double-key sequences (yy, gg, yf), link hints (f, F)
-- **User Experience**: Visual feedback (notifications), smooth animations
-- **Vanilla JS**: No frameworks, no build tools, modern ES6+ features
-
-### File Structure
-
-```
-/
-├── manifest.json       # Extension config (Manifest V3)
-├── content.js         # Main keyboard handling logic
-├── background.js      # Tab management service worker
-├── popup.html         # Extension popup UI
-├── popup.js          # Popup functionality
-├── icons/            # Extension icons (16, 48, 128)
-└── README.md         # User documentation
-```
-
-### JavaScript Style
-
-**Formatting:**
-- Use 2-space indentation
+### Formatting
+- 2-space indentation
 - Single quotes for strings
 - Semicolons required
-- Use `'use strict'` in IIFE wrappers
+- `'use strict'` inside IIFE wrapper (content.js is wrapped in `(function() { ... })()`)
+- background.js is module-level (no IIFE), uses top-level async functions
 
-**Naming Conventions:**
-- camelCase for variables and functions: `scrollStep`, `handleKeydown`
-- PascalCase for classes (if used)
-- UPPER_CASE for true constants: `keySequenceTimeout`
-- Descriptive names: `isEditableElement()` not `checkEl()`
+### Naming
+- `camelCase` for variables and functions: `scrollStep`, `handleKeydown`, `isEditableElement`
+- `UPPER_CASE` for timeout constants: `keySequenceTimeout`
+- Descriptive names over abbreviations: `isEditableElement()` not `checkEl()`
+- CSS classes namespaced with `modalbrowsing-` prefix: `.modalbrowsing-hint`, `.modalbrowsing-search-bar`
 
-**Function Structure:**
-```javascript
-// Good: Clear function with early returns
-function isEditableElement(element) {
-  if (!element) return false;
-  const tagName = element.tagName.toLowerCase();
-  const isEditable = element.isContentEditable;
-  const isInput = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
-  
-  return isEditable || isInput;
-}
-```
-
-**Async/Await:**
-- Prefer async/await over promises
-- Always use try/catch for error handling
-```javascript
-async function handleOpenNewTab(currentTab) {
-  try {
-    await chrome.tabs.create({
-      active: true,
-      index: currentTab.index + 1
-    });
-  } catch (error) {
-    console.error('Error opening new tab:', error);
-  }
-}
-```
+### Functions
+- Early returns for guard clauses
+- `async/await` over raw promises
+- Always `try/catch` around async/chrome API operations
+- Log errors with context: `console.error('Error switching tabs:', error)`
 
 ### Error Handling
+- Wrap all chrome API calls in try/catch
+- Never break page functionality on errors — fail silently or show notification
+- User-facing errors use `showNotification()` in content.js
+- Background script sends `{ success: false, notify: '...' }` responses on failure
 
-- Always wrap async operations in try/catch
-- Log errors with descriptive messages: `console.error('Error switching tabs:', error)`
-- Fail gracefully - don't break page functionality
-- Show user-friendly notifications for user-facing errors
+### State Management
+- Minimal module-scoped state variables at top of each file
+- content.js state: `isEnabled`, `scrollStep`, `linkHintMode`, `linkHints`, `hintInput`, search state, omnibar state, group picker state, help overlay state
+- background.js state: `closedTabsHistory` (array, max 10 entries)
+- No shared state between files — communicate via `chrome.runtime.sendMessage`
 
-### Chrome Extension APIs
+## Architecture Patterns
 
-**Message Passing:**
+### Message Passing (content ↔ background)
 ```javascript
-// Content script to background
+// Content script → background
 chrome.runtime.sendMessage({ action: 'switchTab', direction: 'left' });
 
-// Background listener
+// Background handler (always return true for async)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'switchTab') {
     handleTabSwitch(message.direction, sender.tab);
     sendResponse({ success: true });
   }
-  return true; // Required for async responses
+  return true;
 });
 ```
 
-**Chrome API Patterns:**
-- Use async/await with chrome APIs
-- Query tabs: `const tabs = await chrome.tabs.query({ currentWindow: true })`
-- Update tabs: `await chrome.tabs.update(tabId, { active: true })`
+Message actions: `switchTab`, `openNewTab`, `closeTab`, `reopenTab`, `moveTabLeft`,
+`moveTabRight`, `omnibarSearch`, `omnibarSwitchTab`, `omnibarOpenUrl`, `getTabGroups`,
+`moveTabToGroup`, `createGroupAndMoveTab`, `toggleEnabled`, `getStatus`
 
-### Key Sequence Handling
+### Key Sequence Handling (yy, gg, yf, gt)
+Uses `lastKeyPressed` + `lastKeyTime` with 1-second timeout. First key stores state,
+second key within timeout executes the action and resets state.
 
-**Pattern for Double-Key Sequences (yy, gg, yf):**
-```javascript
-// Track last key and time
-let lastKeyPressed = null;
-let lastKeyTime = 0;
-const keySequenceTimeout = 1000;
+### Link Hints System
+Three modes triggered by different keys:
+- `f` → click mode (click/focus element)
+- `F` → newtab mode (open link in new tab)
+- `yf` → copy mode (copy link URL)
 
-if (event.key === 'y' && !event.shiftKey) {
-  if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-    // Second 'y' - execute action
-    copyToClipboard(window.location.href);
-    handled = true;
-    lastKeyPressed = null;
-    lastKeyTime = 0;
-  } else {
-    // First 'y' - wait for second
-    lastKeyPressed = 'y';
-    lastKeyTime = currentTime;
-    handled = true;
-  }
-}
-```
+Labels generated as `a-z` for ≤26 elements, `a-z` then `aa-zz` for more.
+Typed prefix is highlighted in matched hints; non-matching hints dim to 30% opacity.
 
-### UI & Visual Feedback
+### UI Components (all in content.js)
+- **Notifications**: fixed bottom-right, auto-dismiss 1.5s, slide animation
+- **Search bar**: fixed top bar with `/` prefix, live search, smart case
+- **Omnibar** (`o`): centered modal for tab search / URL entry
+- **Group picker** (`gt`): centered modal for tab group management
+- **Help overlay** (`?`): centered modal with all shortcuts
+- **Link hints**: absolutely positioned labels over clickable elements
 
-**Notifications:**
-- Use the `showNotification()` helper for user feedback
-- Green notifications (#4CAF50) for success
-- Auto-dismiss after 2 seconds
-- Animate with CSS: slideIn/slideOut
+All UI uses injected `<style>` in document.head. Z-index: 999999 for UI, 999998 for overlays.
 
-**CSS in JS:**
-- Inject styles via `<style>` tag in document.head
-- Namespace classes: `.modalbrowsing-hint`, `.modalbrowsing-hint-highlight`
-- High z-index for overlays: `z-index: 999999`
+### CSS Class Conventions
+- `.modalbrowsing-hint` — link hint label
+- `.modalbrowsing-hint-matched` — typed character highlight in hint
+- `.modalbrowsing-hint-highlight` — outline on hinted element
+- `.modalbrowsing-search-*` — search bar and highlights
+- `.modalbrowsing-omnibar*` — omnibar components
+- `.modalbrowsing-grouppicker*` — group picker components
+- `.modalbrowsing-help*` — help overlay components
 
-### Documentation
+## Permissions (manifest.json)
 
-**Code Comments:**
-- Comment sections: `// Tab switching`, `// Page navigation`
-- Explain non-obvious logic: `// Wrap around if at the beginning`
-- Document helper functions with purpose comment
+- `activeTab` — access current tab when invoked
+- `storage` — save preferences
+- `tabs` — tab management (switch, close, reopen, move, query)
+- `clipboardWrite` — copy URLs/links
+- `tabGroups` — tab group management
 
-**Updating Documentation:**
-When adding new shortcuts, update in order:
-1. Implement in content.js/background.js
-2. Update popup.html keybindings section
-3. Update README.md keyboard shortcuts
-4. Keep all three in sync
+Only add new permissions if absolutely necessary for core functionality.
 
-### State Management
+## When Adding Features
 
-**Content Script State:**
-```javascript
-let isEnabled = true;           // Extension on/off
-let scrollStep = 60;            // Scroll distance
-let linkHintMode = false;       // Link hint active state
-let linkHints = [];             // Active link hint data
-```
+### New Keyboard Shortcut
+1. Add handling in `handleKeydown()` in content.js (key sequences before switch, single keys in switch)
+2. If browser-level action needed, send message to background.js and add handler there
+3. Update the `shortcuts` array in `openHelp()` in content.js
+4. Update the keybindings section in popup.html
+5. Update keyboard shortcuts in README.md
+6. Keep all four locations in sync
 
-**Background Script State:**
-```javascript
-let closedTabsHistory = [];     // Last 10 closed tabs
-```
-
-Keep state minimal and at appropriate scope.
-
-### Permissions
-
-Current permissions in manifest.json:
-- `activeTab` - Access current tab when invoked
-- `storage` - Save preferences
-- `tabs` - Tab management (switching, closing, reopening)
-- `clipboardWrite` - Copy URLs/links
-
-Only request new permissions if absolutely necessary for core functionality.
-
-## Testing Checklist
-
-Manual testing required for each change:
-- [ ] Load extension in Edge developer mode
-- [ ] Test on multiple sites (simple HTML, complex SPAs)
-- [ ] Verify keyboard shortcuts work as expected
-- [ ] Check input fields are not intercepted
-- [ ] Test edge cases (empty pages, iframes)
-- [ ] Verify visual feedback (notifications, hints)
-- [ ] Check browser console for errors
-
-## Common Patterns
-
-**Adding a New Keyboard Shortcut:**
-1. Add case in content.js switch statement
-2. Send message to background if browser-level action needed
-3. Add handler in background.js if needed
-4. Update popup.html with new shortcut
-5. Update README.md documentation
-
-**Adding New Functionality:**
-1. Check if permissions needed (update manifest.json)
-2. Implement logic in appropriate file
-3. Test thoroughly with extension reloaded
-4. Update user-facing documentation
+### New UI Component
+1. Add CSS classes (namespaced `modalbrowsing-`) in the injected `<style>` block
+2. Add state variables at module scope
+3. Implement open/close/render functions following existing patterns
+4. Handle Escape key dismissal in `handleKeydown()`
+5. Clean up DOM elements in close function

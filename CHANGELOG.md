@@ -1,6 +1,13 @@
 # CHANGELOG
 
-## Version 1.0
+## Version 1
+
+### 1.3.0
+
+- (Feature) Highlights letters of markers which have been typed.
+- (Misc) Scrolling to the bottom and the top with `G` and `gg` is fast and instant.
+- (Misc) Improves highlighting of link markers (slightly transparent, highlights only lower background of links).
+- (Fix) `i` really focusses first input field.
 
 ### 1.2.0
 
