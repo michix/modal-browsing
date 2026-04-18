@@ -5,6 +5,7 @@
 ### 1.4.0
 
 - (Feature) Adds shortcuts `<ctrl-u>` and `<ctrl-d>` to scroll half a page up and down, respectively.
+- (Feature) Adds shortcuts `<ctrl-o>` and `<ctrl-i>` to navigate backwards and forwards, respectively, in tab history.
 - (Chore) Dials back highlighting of selected links.
 
 ### 1.3.0

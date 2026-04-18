@@ -1341,6 +1341,7 @@
           ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
           ['<', 'Move tab left'], ['>', 'Move tab right'],
           ['gt', 'Move tab to group'],
+          ['Ctrl-o', 'Previous tab in history'], ['Ctrl-i', 'Next tab in history'],
           ['H', 'Go back in history'], ['L', 'Go forward in history'],
           ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
           ['t', 'Open new tab'], ['x', 'Close tab'],
@@ -1437,15 +1438,37 @@
       return;
     }
 
-    // Handle Ctrl-u and Ctrl-d for half-page scrolling before blocking other Ctrl shortcuts
+    // Handle Ctrl shortcuts before blocking other Ctrl shortcuts
     if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
       if (event.key === 'u') {
+        // Ctrl-u: scroll up half page
         smoothScroll(0, -window.innerHeight / 2);
         event.preventDefault();
         event.stopPropagation();
         return;
       } else if (event.key === 'd') {
+        // Ctrl-d: scroll down half page
         smoothScroll(0, window.innerHeight / 2);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'o') {
+        // Ctrl-o: switch to previous tab in history
+        chrome.runtime.sendMessage({ action: 'switchToPreviousTab' }, (response) => {
+          if (response && response.notify) {
+            showNotification(response.notify);
+          }
+        });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'i') {
+        // Ctrl-i: switch to next tab in history
+        chrome.runtime.sendMessage({ action: 'switchToNextTab' }, (response) => {
+          if (response && response.notify) {
+            showNotification(response.notify);
+          }
+        });
         event.preventDefault();
         event.stopPropagation();
         return;

@@ -4,6 +4,12 @@
 // Track closed tabs for reopening
 let closedTabsHistory = [];
 
+// Track tab activation history for Ctrl-o/Ctrl-i navigation
+let tabActivationHistory = []; // stores tab IDs in activation order (oldest -> newest)
+let tabHistoryIndex = -1;      // index of the currently active tab in the history (-1 means unset)
+let isNavigatingHistory = false; // true while we programmatically switch tabs for history navigation
+let navigationTargetId = null;   // target tab ID during navigation
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'switchTab') {
     handleTabSwitch(message.direction, sender.tab);
@@ -22,6 +28,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // keep channel open for async response
   } else if (message.action === 'moveTabRight') {
     handleMoveTab('right', sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'switchToPreviousTab') {
+    handleSwitchToPreviousTab(sender.tab).then(sendResponse);
+    return true; // keep channel open for async response
+  } else if (message.action === 'switchToNextTab') {
+    handleSwitchToNextTab(sender.tab).then(sendResponse);
     return true; // keep channel open for async response
   } else if (message.action === 'omnibarSearch') {
     handleOmnibarSearch(message.query, sender.tab).then(sendResponse);
@@ -43,6 +55,56 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   return true;
+});
+
+// Track tab activation for Ctrl-o/Ctrl-i (jump to previous/next tab)
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  const tabId = activeInfo.tabId;
+
+  // If this activation is the result of our own navigation, just update the index and exit
+  if (isNavigatingHistory && navigationTargetId === tabId) {
+    const idx = tabActivationHistory.indexOf(tabId);
+    if (idx !== -1) {
+      tabHistoryIndex = idx;
+    }
+    isNavigatingHistory = false;
+    navigationTargetId = null;
+    return;
+  }
+
+  // User-driven activation: reset navigation state
+  isNavigatingHistory = false;
+  navigationTargetId = null;
+
+  // Remove existing occurrence to keep entries unique
+  const existingIndex = tabActivationHistory.indexOf(tabId);
+  if (existingIndex !== -1) {
+    tabActivationHistory.splice(existingIndex, 1);
+  }
+
+  // Append as most recent
+  tabActivationHistory.push(tabId);
+
+  // Clamp history size
+  if (tabActivationHistory.length > 50) {
+    tabActivationHistory.shift();
+  }
+
+  // Point to the newest entry
+  tabHistoryIndex = tabActivationHistory.length - 1;
+});
+
+// Clean up closed tabs from history
+chrome.tabs.onRemoved.addListener((tabId) => {
+  const removedIndex = tabActivationHistory.indexOf(tabId);
+  if (removedIndex !== -1) {
+    tabActivationHistory.splice(removedIndex, 1);
+    if (tabHistoryIndex > removedIndex) {
+      tabHistoryIndex -= 1;
+    } else if (tabHistoryIndex === removedIndex) {
+      tabHistoryIndex = tabActivationHistory.length - 1;
+    }
+  }
 });
 
 async function handleTabSwitch(direction, currentTab) {
@@ -125,6 +187,68 @@ async function handleReopenTab() {
   } catch (error) {
     console.error('Error reopening tab:', error);
   }
+}
+
+// Switch to previously active tab (Ctrl-o)
+async function handleSwitchToPreviousTab(currentTab) {
+  try {
+    return switchInHistory(-1);
+  } catch (error) {
+    console.error('Error switching to previous tab:', error);
+    return { success: false, notify: 'Error switching to previous tab: ' + error.message };
+  }
+}
+
+// Switch to next active tab in history (Ctrl-i)
+async function handleSwitchToNextTab(currentTab) {
+  try {
+    return switchInHistory(1);
+  } catch (error) {
+    console.error('Error switching to next tab:', error);
+    return { success: false, notify: 'Error switching to next tab: ' + error.message };
+  }
+}
+
+// Navigate tab history. direction: -1 backward (Ctrl-o), 1 forward (Ctrl-i)
+async function switchInHistory(direction) {
+  if (tabActivationHistory.length === 0) {
+    return { success: false, notify: 'No tab history available' };
+  }
+
+  // If index is unset, assume we are at the most recent tab
+  if (tabHistoryIndex === -1) {
+    tabHistoryIndex = tabActivationHistory.length - 1;
+  }
+
+  const targetIndex = tabHistoryIndex + direction;
+
+  if (targetIndex < 0) {
+    return { success: false, notify: 'At the beginning of tab history' };
+  }
+  if (targetIndex >= tabActivationHistory.length) {
+    return { success: false, notify: 'At the most recent tab' };
+  }
+
+  const targetTabId = tabActivationHistory[targetIndex];
+
+  try {
+    await chrome.tabs.get(targetTabId);
+  } catch (error) {
+    // Tab no longer exists; remove it and adjust index
+    tabActivationHistory = tabActivationHistory.filter(id => id !== targetTabId);
+    if (tabHistoryIndex >= tabActivationHistory.length) {
+      tabHistoryIndex = tabActivationHistory.length - 1;
+    }
+    return { success: false, notify: 'Tab no longer exists in history' };
+  }
+
+  // Set navigation state so onActivated doesn't rewrite history
+  isNavigatingHistory = true;
+  navigationTargetId = targetTabId;
+  tabHistoryIndex = targetIndex;
+
+  await chrome.tabs.update(targetTabId, { active: true });
+  return { success: true };
 }
 
 // Tab moving
