@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.3.1
+
+- (Chore) Dials back highlighting of selected links.
+
 ### 1.3.0
 
 - (Feature) Highlights letters of markers which have been typed.

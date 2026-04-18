@@ -162,7 +162,8 @@
       color: #FF4500;
     }
     .modalbrowsing-hint-highlight {
-      background-image: linear-gradient(to bottom, transparent 50%, rgba(255, 215, 0, 0.5) 50%) !important;
+      outline: 1px solid #FFD700 !important;
+      outline-offset: 1px;
     }
     .modalbrowsing-search-bar {
       position: fixed;
