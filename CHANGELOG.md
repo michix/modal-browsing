@@ -2,8 +2,9 @@
 
 ## Version 1
 
-### 1.3.1
+### 1.4.0
 
+- (Feature) Adds shortcuts `<ctrl-u>` and `<ctrl-d>` to scroll half a page up and down, respectively.
 - (Chore) Dials back highlighting of selected links.
 
 ### 1.3.0

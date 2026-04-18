@@ -1332,6 +1332,7 @@
           ['j', 'Scroll down'], ['k', 'Scroll up'],
           ['h', 'Scroll left'], ['l', 'Scroll right'],
           ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
+          ['Ctrl-d', 'Scroll down (half page)'], ['Ctrl-u', 'Scroll up (half page)'],
         ]
       },
       {
@@ -1434,6 +1435,21 @@
     // Don't intercept if we're in an input field (except ESC handled above)
     if (isEditableElement(event.target)) {
       return;
+    }
+
+    // Handle Ctrl-u and Ctrl-d for half-page scrolling before blocking other Ctrl shortcuts
+    if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+      if (event.key === 'u') {
+        smoothScroll(0, -window.innerHeight / 2);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'd') {
+        smoothScroll(0, window.innerHeight / 2);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
     }
 
     // Don't intercept if modifier keys are pressed (except Shift for some commands)

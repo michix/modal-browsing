@@ -29,6 +29,8 @@ You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedg
 - `l` - Scroll right
 - `d` - Scroll down (large step)
 - `u` - Scroll up (large step)
+- `Ctrl-d` - Scroll down (half page)
+- `Ctrl-u` - Scroll up (half page)
 
 ### Navigation
 
