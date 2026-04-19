@@ -1351,7 +1351,7 @@
       {
         heading: 'Other', items: [
           ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
-          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
+          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'], ['yt', 'Copy page title'],
           ['i', 'Focus first input'], ['/', 'Search page'],
           ['n', 'Next search match'], ['N', 'Previous search match'],
           ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
@@ -1502,7 +1502,7 @@
       return;
     }
 
-    // Check for 'yy', 'yf', 'gg', 'gt', '<', and '>' sequences/keys
+    // Check for 'yy', 'yf', 'yt', 'gg', 'gt', '<', and '>' sequences/keys
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
@@ -1532,6 +1532,24 @@
         showLinkHints('click');
         handled = true;
       }
+    } else if (event.key === 't' && !event.shiftKey) {
+      if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // 'gt' sequence - move tab to group
+        openGroupPicker();
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // 'yt' sequence - copy page title
+        copyToClipboard(document.title || '');
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else {
+        // Single 't' - open new tab
+        chrome.runtime.sendMessage({ action: 'openNewTab' });
+        handled = true;
+      }
     } else if (event.key === 'g' && !event.shiftKey) {
       if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'g' pressed - go to top
@@ -1545,12 +1563,6 @@
         lastKeyTime = currentTime;
         handled = true;
       }
-    } else if (event.key === 't' && !event.shiftKey && lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-      // 'gt' sequence - move tab to group
-      openGroupPicker();
-      handled = true;
-      lastKeyPressed = null;
-      lastKeyTime = 0;
     } else if (event.key === '<') {
       // Single '<' - move tab left
       chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
@@ -1574,14 +1586,7 @@
     }
 
     // If a sequence key was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 'g' || event.key === '<' || event.key === '>')) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // If 'gt' sequence was handled, stop here (t alone still falls through to switch)
-    if (handled && event.key === 't') {
+    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>')) {
       event.preventDefault();
       event.stopPropagation();
       return;
