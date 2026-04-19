@@ -92,11 +92,11 @@
   }
 
   // Copy to clipboard helper
-  async function copyToClipboard(text) {
+  async function copyToClipboard(text, message = 'Copied to clipboard') {
     try {
       await navigator.clipboard.writeText(text);
       // Visual feedback
-      showNotification('URL copied to clipboard');
+      showNotification(message);
       return true;
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
@@ -162,7 +162,8 @@
       color: #FF4500;
     }
     .modalbrowsing-hint-highlight {
-      background-image: linear-gradient(to bottom, transparent 50%, rgba(255, 215, 0, 0.5) 50%) !important;
+      outline: 1px solid #FFD700 !important;
+      outline-offset: 1px;
     }
     .modalbrowsing-search-bar {
       position: fixed;
@@ -549,10 +550,10 @@
     if (matches.length === 1 && matches[0].label === hintInput) {
       // Exact match - perform action based on mode
       const match = matches[0];
-      if (match.mode === 'copy') {
-        // Copy mode - only works for links with URLs
-        if (match.url) {
-          copyToClipboard(match.url);
+        if (match.mode === 'copy') {
+          // Copy mode - only works for links with URLs
+          if (match.url) {
+            copyToClipboard(match.url, 'Link URL copied');
         } else {
           showNotification('Cannot copy: not a link');
         }
@@ -1331,6 +1332,7 @@
           ['j', 'Scroll down'], ['k', 'Scroll up'],
           ['h', 'Scroll left'], ['l', 'Scroll right'],
           ['d', 'Scroll down (large)'], ['u', 'Scroll up (large)'],
+          ['Ctrl-d', 'Scroll down (half page)'], ['Ctrl-u', 'Scroll up (half page)'],
         ]
       },
       {
@@ -1339,6 +1341,7 @@
           ['J', 'Switch to left tab'], ['K', 'Switch to right tab'],
           ['<', 'Move tab left'], ['>', 'Move tab right'],
           ['gt', 'Move tab to group'],
+          ['Ctrl-o', 'Previous tab in history'], ['Ctrl-i', 'Next tab in history'],
           ['H', 'Go back in history'], ['L', 'Go forward in history'],
           ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
           ['t', 'Open new tab'], ['x', 'Close tab'],
@@ -1348,7 +1351,7 @@
       {
         heading: 'Other', items: [
           ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
-          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'],
+          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'], ['yt', 'Copy page title'], ['ylm', 'Copy markdown link'], ['yla', 'Copy AsciiDoc link'],
           ['i', 'Focus first input'], ['/', 'Search page'],
           ['n', 'Next search match'], ['N', 'Previous search match'],
           ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
@@ -1435,6 +1438,43 @@
       return;
     }
 
+    // Handle Ctrl shortcuts before blocking other Ctrl shortcuts
+    if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
+      if (event.key === 'u') {
+        // Ctrl-u: scroll up half page
+        smoothScroll(0, -window.innerHeight / 2);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'd') {
+        // Ctrl-d: scroll down half page
+        smoothScroll(0, window.innerHeight / 2);
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'o') {
+        // Ctrl-o: switch to previous tab in history
+        chrome.runtime.sendMessage({ action: 'switchToPreviousTab' }, (response) => {
+          if (response && response.notify) {
+            showNotification(response.notify);
+          }
+        });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else if (event.key === 'i') {
+        // Ctrl-i: switch to next tab in history
+        chrome.runtime.sendMessage({ action: 'switchToNextTab' }, (response) => {
+          if (response && response.notify) {
+            showNotification(response.notify);
+          }
+        });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+
     // Don't intercept if modifier keys are pressed (except Shift for some commands)
     if (event.ctrlKey || event.altKey || event.metaKey) {
       return;
@@ -1462,11 +1502,11 @@
       return;
     }
 
-    // Check for 'yy', 'yf', 'gg', 'gt', '<', and '>' sequences/keys
+    // Check for 'yy', 'yf', 'yt', 'ylm', 'yla', 'gg', 'gt', '<', and '>' sequences/keys
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
-        copyToClipboard(window.location.href);
+        copyToClipboard(window.location.href, 'Page URL copied');
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
@@ -1476,6 +1516,27 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === 'l' && lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'yl' partial sequence
+      lastKeyPressed = 'yl';
+      lastKeyTime = currentTime;
+      handled = true;
+    } else if (event.key === 'm' && lastKeyPressed === 'yl' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'ylm' sequence - copy markdown link [title](url)
+      const title = document.title || window.location.href || '';
+      const url = window.location.href || '';
+      copyToClipboard(`[${title}](${url})`, 'Markdown link copied');
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
+    } else if (event.key === 'a' && lastKeyPressed === 'yl' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'yla' sequence - copy AsciiDoc link url[title]
+      const title = document.title || window.location.href || '';
+      const url = window.location.href || '';
+      copyToClipboard(`${url}[${title}]`, 'AsciiDoc link copied');
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
     } else if (event.key === 'f' || event.key === 'F') {
       if (event.shiftKey) {
         // 'F' (Shift+f) - show link hints for opening in new tab
@@ -1492,6 +1553,24 @@
         showLinkHints('click');
         handled = true;
       }
+    } else if (event.key === 't' && !event.shiftKey) {
+      if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // 'gt' sequence - move tab to group
+        openGroupPicker();
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // 'yt' sequence - copy page title
+        copyToClipboard(document.title || '', 'Page title copied');
+        handled = true;
+        lastKeyPressed = null;
+        lastKeyTime = 0;
+      } else {
+        // Single 't' - open new tab
+        chrome.runtime.sendMessage({ action: 'openNewTab' });
+        handled = true;
+      }
     } else if (event.key === 'g' && !event.shiftKey) {
       if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'g' pressed - go to top
@@ -1505,12 +1584,6 @@
         lastKeyTime = currentTime;
         handled = true;
       }
-    } else if (event.key === 't' && !event.shiftKey && lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-      // 'gt' sequence - move tab to group
-      openGroupPicker();
-      handled = true;
-      lastKeyPressed = null;
-      lastKeyTime = 0;
     } else if (event.key === '<') {
       // Single '<' - move tab left
       chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {
@@ -1534,14 +1607,7 @@
     }
 
     // If a sequence key was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 'g' || event.key === '<' || event.key === '>')) {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-
-    // If 'gt' sequence was handled, stop here (t alone still falls through to switch)
-    if (handled && event.key === 't') {
+    if (handled && (event.key === 'y' || event.key === 'l' || event.key === 'm' || event.key === 'a' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>')) {
       event.preventDefault();
       event.stopPropagation();
       return;
