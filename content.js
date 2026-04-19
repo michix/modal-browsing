@@ -92,11 +92,11 @@
   }
 
   // Copy to clipboard helper
-  async function copyToClipboard(text) {
+  async function copyToClipboard(text, message = 'Copied to clipboard') {
     try {
       await navigator.clipboard.writeText(text);
       // Visual feedback
-      showNotification('URL copied to clipboard');
+      showNotification(message);
       return true;
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
@@ -550,10 +550,10 @@
     if (matches.length === 1 && matches[0].label === hintInput) {
       // Exact match - perform action based on mode
       const match = matches[0];
-      if (match.mode === 'copy') {
-        // Copy mode - only works for links with URLs
-        if (match.url) {
-          copyToClipboard(match.url);
+        if (match.mode === 'copy') {
+          // Copy mode - only works for links with URLs
+          if (match.url) {
+            copyToClipboard(match.url, 'Link URL copied');
         } else {
           showNotification('Cannot copy: not a link');
         }
@@ -1506,7 +1506,7 @@
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
-        copyToClipboard(window.location.href);
+        copyToClipboard(window.location.href, 'Page URL copied');
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
@@ -1525,7 +1525,7 @@
       // 'ylm' sequence - copy markdown link [title](url)
       const title = document.title || window.location.href || '';
       const url = window.location.href || '';
-      copyToClipboard(`[${title}](${url})`);
+      copyToClipboard(`[${title}](${url})`, 'Markdown link copied');
       handled = true;
       lastKeyPressed = null;
       lastKeyTime = 0;
@@ -1533,7 +1533,7 @@
       // 'yla' sequence - copy AsciiDoc link url[title]
       const title = document.title || window.location.href || '';
       const url = window.location.href || '';
-      copyToClipboard(`${url}[${title}]`);
+      copyToClipboard(`${url}[${title}]`, 'AsciiDoc link copied');
       handled = true;
       lastKeyPressed = null;
       lastKeyTime = 0;
@@ -1562,7 +1562,7 @@
         lastKeyTime = 0;
       } else if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // 'yt' sequence - copy page title
-        copyToClipboard(document.title || '');
+        copyToClipboard(document.title || '', 'Page title copied');
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
