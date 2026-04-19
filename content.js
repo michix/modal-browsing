@@ -1351,7 +1351,7 @@
       {
         heading: 'Other', items: [
           ['f', 'Hints: click / focus element'], ['F', 'Hints: open in new tab'],
-          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'], ['yt', 'Copy page title'],
+          ['yy', 'Copy URL to clipboard'], ['yf', 'Hints: copy link URL'], ['yt', 'Copy page title'], ['ylm', 'Copy markdown link'],
           ['i', 'Focus first input'], ['/', 'Search page'],
           ['n', 'Next search match'], ['N', 'Previous search match'],
           ['?', 'Show this help'], ['Esc', 'Exit to normal mode'],
@@ -1502,7 +1502,7 @@
       return;
     }
 
-    // Check for 'yy', 'yf', 'yt', 'gg', 'gt', '<', and '>' sequences/keys
+    // Check for 'yy', 'yf', 'yt', 'ylm', 'gg', 'gt', '<', and '>' sequences/keys
     if (event.key === 'y' && !event.shiftKey) {
       if (lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'y' pressed - copy URL
@@ -1516,6 +1516,19 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === 'l' && lastKeyPressed === 'y' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'yl' partial sequence
+      lastKeyPressed = 'yl';
+      lastKeyTime = currentTime;
+      handled = true;
+    } else if (event.key === 'm' && lastKeyPressed === 'yl' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'ylm' sequence - copy markdown link [title](url)
+      const title = document.title || window.location.href || '';
+      const url = window.location.href || '';
+      copyToClipboard(`[${title}](${url})`);
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
     } else if (event.key === 'f' || event.key === 'F') {
       if (event.shiftKey) {
         // 'F' (Shift+f) - show link hints for opening in new tab
@@ -1586,7 +1599,7 @@
     }
 
     // If a sequence key was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>')) {
+    if (handled && (event.key === 'y' || event.key === 'l' || event.key === 'm' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>')) {
       event.preventDefault();
       event.stopPropagation();
       return;
