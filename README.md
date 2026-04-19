@@ -59,6 +59,7 @@ You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedg
 - `yf` - Show hints for links and copy selected link URL to clipboard
 - `yt` - Copy current page title to clipboard
 - `ylm` - Copy current page as markdown link `[title](url)`
+- `yla` - Copy current page as AsciiDoc link `url[title]`
 - `i` - Focus first input field on page
 - `/` - Search page (type query, Enter/Shift+Enter to navigate matches)
 - `n` - Jump to next search match

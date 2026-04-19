@@ -7,7 +7,8 @@
 - (Feature) Adds shortcuts `<ctrl-u>` and `<ctrl-d>` to scroll half a page up and down, respectively.
 - (Feature) Adds shortcuts `<ctrl-o>` and `<ctrl-i>` to navigate backwards and forwards, respectively, in tab history.
 - (Feature) Copies title of page to clipboard using `yt`.
-- (Feature) Copies a markdown link of the page using the title to the clipboard with `ylm`.
+- (Feature) Copies a Markdown link of the page using the title to the clipboard with `ylm`.
+- (Feature) Copies an AsciiDoc link of the page using the title to the clipboard with `yla`.
 - (Chore) Dials back highlighting of selected links.
 
 ### 1.3.0
