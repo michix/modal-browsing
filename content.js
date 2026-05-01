@@ -51,9 +51,48 @@
       });
   }
 
-  // Smooth scroll helper (used for one-shot scrolls like d/u)
+  // Scroll helpers
+  let scrollContainer = null;
+
+  function isScrollableElement(el) {
+    if (!el || el === document.body.parentElement) return false;
+    const style = window.getComputedStyle(el);
+    const overflowY = style.overflowY;
+    const canScroll = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+    return canScroll && el.scrollHeight > el.clientHeight;
+  }
+
+  function findScrollableAncestor(el) {
+    while (el && el !== document.body.parentElement) {
+      if (isScrollableElement(el)) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function getScrollTarget() {
+    const docScroll = document.scrollingElement || document.documentElement || document.body;
+    if (docScroll && docScroll.scrollHeight > docScroll.clientHeight) {
+      return docScroll;
+    }
+
+    const active = findScrollableAncestor(document.activeElement);
+    if (active) return active;
+
+    const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    const centerScroll = findScrollableAncestor(centerEl);
+    if (centerScroll) return centerScroll;
+
+    const bodyScroll = findScrollableAncestor(document.body);
+    return bodyScroll || docScroll;
+  }
+
   function smoothScroll(x, y) {
-    window.scrollBy({
+    const target = getScrollTarget();
+    if (!target) return;
+    target.scrollBy({
       top: y,
       left: x,
       behavior: 'smooth'
@@ -64,6 +103,7 @@
   function scrollLoop() {
     if (scrollKeys.size === 0) {
       scrollAnimationId = null;
+      scrollContainer = null;
       return;
     }
     let dx = 0;
@@ -73,7 +113,10 @@
     if (scrollKeys.has('h')) dx -= scrollSpeed;
     if (scrollKeys.has('l')) dx += scrollSpeed;
     if (dx !== 0 || dy !== 0) {
-      window.scrollBy(dx, dy);
+      const target = scrollContainer || getScrollTarget();
+      if (target) {
+        target.scrollBy(dx, dy);
+      }
     }
     scrollAnimationId = requestAnimationFrame(scrollLoop);
   }
@@ -82,6 +125,7 @@
     if (scrollKeys.has(key)) return; // already held (repeat keydown)
     scrollKeys.add(key);
     if (!scrollAnimationId) {
+      scrollContainer = getScrollTarget();
       scrollAnimationId = requestAnimationFrame(scrollLoop);
     }
   }

@@ -2,6 +2,8 @@
 
 ## Version 1
 
+- (Fix) Fixes not working scrolling on Websites like [GitLab](https://gitlab.com).
+
 ### 1.4.0
 
 - (Feature) Adds shortcuts `<ctrl-u>` and `<ctrl-d>` to scroll half a page up and down, respectively.
