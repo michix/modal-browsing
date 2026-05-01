@@ -27,7 +27,8 @@
   let searchMatches = [];
   let currentMatchIndex = -1;
   let searchOverlay = null;
-
+  
+  let justExitedEditable = false;
   // Check if we're in an input field
   function isEditableElement(element) {
     if (!element) return false;
@@ -1472,15 +1473,17 @@
       event.target.blur();
       // Ensure focus moves away from the editable element
       document.body.focus();
+      justExitedEditable = true;
       event.preventDefault();
       event.stopPropagation();
       return;
     }
 
     // Don't intercept if we're in an input field (except ESC handled above)
-    if (isEditableElement(event.target)) {
+    if (isEditableElement(event.target) && !justExitedEditable) {
       return;
     }
+    justExitedEditable = false;
 
     // Handle Ctrl shortcuts before blocking other Ctrl shortcuts
     if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {

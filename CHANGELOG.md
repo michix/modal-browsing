@@ -2,7 +2,10 @@
 
 ## Version 1
 
+### 1.4.1
+
 - (Fix) Fixes not working scrolling on Websites like [GitLab](https://gitlab.com).
+- (Fix) Fixes escaping to normal mode from input field.
 
 ### 1.4.0
 
