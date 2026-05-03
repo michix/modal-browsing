@@ -5,6 +5,7 @@
 ### 1.4.2
 
 - (Fix) Makes scolling using `h`, `j`, `k`, `l` feasible on QMK keyboards.
+- (Fix) Makes scrolling to the top or the bottom using `gg` and `G` instant (without animation).
 
 ### 1.4.1
 

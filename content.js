@@ -66,21 +66,40 @@
     return null;
   }
 
+  let lastScrollContainer = null;
+
   function getScrollTarget() {
     const docScroll = document.scrollingElement || document.documentElement || document.body;
     if (docScroll && docScroll.scrollHeight > docScroll.clientHeight) {
+      lastScrollContainer = docScroll;
       return docScroll;
     }
 
     const active = findScrollableAncestor(document.activeElement);
-    if (active) return active;
+    if (active) {
+      lastScrollContainer = active;
+      return active;
+    }
 
     const centerEl = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
     const centerScroll = findScrollableAncestor(centerEl);
-    if (centerScroll) return centerScroll;
+    if (centerScroll) {
+      lastScrollContainer = centerScroll;
+      return centerScroll;
+    }
 
     const bodyScroll = findScrollableAncestor(document.body);
-    return bodyScroll || docScroll;
+    if (bodyScroll) {
+      lastScrollContainer = bodyScroll;
+      return bodyScroll;
+    }
+
+    if (lastScrollContainer) {
+      return lastScrollContainer;
+    }
+
+    lastScrollContainer = docScroll;
+    return docScroll;
   }
 
   function scrollBy(x, y) {
@@ -93,6 +112,22 @@
     const target = getScrollTarget();
     if (!target) return;
     target.scrollBy({ top: y, left: x, behavior: 'smooth' });
+  }
+
+  function jumpToStart(target) {
+    if (!target) return;
+    const prev = target.style.scrollBehavior;
+    target.style.scrollBehavior = 'auto';
+    target.scrollTop = 0;
+    target.style.scrollBehavior = prev;
+  }
+
+  function jumpToEnd(target) {
+    if (!target) return;
+    const prev = target.style.scrollBehavior;
+    target.style.scrollBehavior = 'auto';
+    target.scrollTop = target.scrollHeight;
+    target.style.scrollBehavior = prev;
   }
 
   // Copy to clipboard helper
@@ -1581,7 +1616,7 @@
       if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'g' pressed - go to top
         const topTarget = getScrollTarget();
-        if (topTarget) topTarget.scrollTop = 0;
+        jumpToStart(topTarget);
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
@@ -1654,7 +1689,7 @@
         if (event.shiftKey) {
           // G - scroll to bottom
           const bottomTarget = getScrollTarget();
-          if (bottomTarget) bottomTarget.scrollTop = bottomTarget.scrollHeight;
+          jumpToEnd(bottomTarget);
           handled = true;
         }
         break;
