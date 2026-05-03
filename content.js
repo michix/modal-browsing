@@ -11,11 +11,6 @@
   let lastKeyTime = 0;
   const keySequenceTimeout = 1000; // 1 second timeout for key sequences
 
-  // Continuous scroll state
-  const scrollKeys = new Set();    // currently held scroll keys
-  let scrollAnimationId = null;
-  const scrollSpeed = 16;           // pixels per frame for j/k/h/l
-
   // Link hints state
   let linkHintMode = false;
   let linkHints = [];
@@ -53,8 +48,6 @@
   }
 
   // Scroll helpers
-  let scrollContainer = null;
-
   function isScrollableElement(el) {
     if (!el || el === document.body.parentElement) return false;
     const style = window.getComputedStyle(el);
@@ -90,50 +83,16 @@
     return bodyScroll || docScroll;
   }
 
-  function smoothScroll(x, y) {
+  function scrollBy(x, y) {
     const target = getScrollTarget();
     if (!target) return;
-    target.scrollBy({
-      top: y,
-      left: x,
-      behavior: 'smooth'
-    });
+    target.scrollBy({ top: y, left: x });
   }
 
-  // Continuous scroll loop — runs via requestAnimationFrame while scroll keys are held
-  function scrollLoop() {
-    if (scrollKeys.size === 0) {
-      scrollAnimationId = null;
-      scrollContainer = null;
-      return;
-    }
-    let dx = 0;
-    let dy = 0;
-    if (scrollKeys.has('j')) dy += scrollSpeed;
-    if (scrollKeys.has('k')) dy -= scrollSpeed;
-    if (scrollKeys.has('h')) dx -= scrollSpeed;
-    if (scrollKeys.has('l')) dx += scrollSpeed;
-    if (dx !== 0 || dy !== 0) {
-      const target = scrollContainer || getScrollTarget();
-      if (target) {
-        target.scrollBy(dx, dy);
-      }
-    }
-    scrollAnimationId = requestAnimationFrame(scrollLoop);
-  }
-
-  function startScrollKey(key) {
-    if (scrollKeys.has(key)) return; // already held (repeat keydown)
-    scrollKeys.add(key);
-    if (!scrollAnimationId) {
-      scrollContainer = getScrollTarget();
-      scrollAnimationId = requestAnimationFrame(scrollLoop);
-    }
-  }
-
-  function stopScrollKey(key) {
-    scrollKeys.delete(key);
-    // scrollLoop will stop itself when scrollKeys is empty
+  function scrollSmoothBy(x, y) {
+    const target = getScrollTarget();
+    if (!target) return;
+    target.scrollBy({ top: y, left: x, behavior: 'smooth' });
   }
 
   // Copy to clipboard helper
@@ -1489,13 +1448,13 @@
     if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey) {
       if (event.key === 'u') {
         // Ctrl-u: scroll up half page
-        smoothScroll(0, -window.innerHeight / 2);
+        scrollSmoothBy(0, -window.innerHeight / 2);
         event.preventDefault();
         event.stopPropagation();
         return;
       } else if (event.key === 'd') {
         // Ctrl-d: scroll down half page
-        smoothScroll(0, window.innerHeight / 2);
+        scrollSmoothBy(0, window.innerHeight / 2);
         event.preventDefault();
         event.stopPropagation();
         return;
@@ -1621,7 +1580,8 @@
     } else if (event.key === 'g' && !event.shiftKey) {
       if (lastKeyPressed === 'g' && (currentTime - lastKeyTime) < keySequenceTimeout) {
         // Second 'g' pressed - go to top
-        window.scrollTo({ top: 0 });
+        const topTarget = getScrollTarget();
+        if (topTarget) topTarget.scrollTop = 0;
         handled = true;
         lastKeyPressed = null;
         lastKeyTime = 0;
@@ -1663,29 +1623,29 @@
     switch (event.key) {
       // Scrolling (continuous while held)
       case 'j':
-        startScrollKey('j');
+        scrollBy(0, scrollStep);
         handled = true;
         break;
       case 'k':
-        startScrollKey('k');
+        scrollBy(0, -scrollStep);
         handled = true;
         break;
       case 'h':
-        startScrollKey('h');
+        scrollBy(-scrollStep, 0);
         handled = true;
         break;
       case 'l':
-        startScrollKey('l');
+        scrollBy(scrollStep, 0);
         handled = true;
         break;
 
       // Large scrolling
       case 'd':
-        smoothScroll(0, scrollStepLarge);
+        scrollSmoothBy(0, scrollStepLarge);
         handled = true;
         break;
       case 'u':
-        smoothScroll(0, -scrollStepLarge);
+        scrollSmoothBy(0, -scrollStepLarge);
         handled = true;
         break;
 
@@ -1693,7 +1653,8 @@
       case 'G':
         if (event.shiftKey) {
           // G - scroll to bottom
-          window.scrollTo({ top: document.body.scrollHeight });
+          const bottomTarget = getScrollTarget();
+          if (bottomTarget) bottomTarget.scrollTop = bottomTarget.scrollHeight;
           handled = true;
         }
         break;
@@ -1824,18 +1785,6 @@
 
   // Listen for keyboard events
   document.addEventListener('keydown', handleKeydown, true);
-
-  // Stop continuous scrolling when scroll keys are released
-  document.addEventListener('keyup', (event) => {
-    if (scrollKeys.has(event.key)) {
-      stopScrollKey(event.key);
-    }
-  }, true);
-
-  // Stop all scrolling if the window loses focus (e.g. Alt+Tab)
-  window.addEventListener('blur', () => {
-    scrollKeys.clear();
-  });
 
   // Listen for messages from popup
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

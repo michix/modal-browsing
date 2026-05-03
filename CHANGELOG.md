@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.4.2
+
+- (Fix) Makes scolling using `h`, `j`, `k`, `l` feasible on QMK keyboards.
+
 ### 1.4.1
 
 - (Fix) Fixes not working scrolling on Websites like [GitLab](https://gitlab.com).
