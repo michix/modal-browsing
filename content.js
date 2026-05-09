@@ -656,22 +656,17 @@
 
     input.focus();
 
-    // Live search as user types
-    input.addEventListener('input', () => {
-      searchQuery = input.value;
-      performSearch(searchQuery);
-      updateSearchCount(count);
-    });
-
-    // Handle Enter (confirm & close) and Escape (close) inside the input
+    // Match the browser find flow: search once on Enter, then navigate with n/N.
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSearchBar(false); // keep highlights so n/N can navigate
         e.preventDefault();
         e.stopPropagation();
       } else if (e.key === 'Enter') {
-        // Confirm search and return to normal mode
-        closeSearchBar(false); // close bar, keep highlights for n/N navigation
+        searchQuery = input.value;
+        performSearch(searchQuery);
+        updateSearchCount(count);
+        closeSearchBar(false); // leave results in place and return to normal mode
         e.preventDefault();
         e.stopPropagation();
       }
@@ -693,7 +688,7 @@
     }
   }
 
-  // Perform text search across the page
+  // Perform search using browser-native find behavior.
   function performSearch(query) {
     clearSearchHighlights();
     searchMatches = [];
@@ -702,12 +697,11 @@
     if (!query || query.length === 0) return;
 
     // Smart case: case-insensitive if query is all lowercase,
-    // case-sensitive if it contains any uppercase letter
+    // case-sensitive if it contains any uppercase letter.
     const caseSensitive = query !== query.toLowerCase();
     const compareQuery = caseSensitive ? query : query.toLowerCase();
 
-    // Phase 1: Collect all text nodes that contain the query
-    const matchData = []; // { node, idx }
+    const matchData = [];
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -715,27 +709,21 @@
         acceptNode: function(node) {
           const parent = node.parentElement;
           if (!parent) return NodeFilter.FILTER_REJECT;
-          // Skip our own UI elements
-          if (parent.closest('.modalbrowsing-search-bar') ||
-            parent.closest('.modalbrowsing-hint')) {
+          if (parent.closest('.modalbrowsing-search-bar') || parent.closest('.modalbrowsing-hint')) {
             return NodeFilter.FILTER_REJECT;
           }
-          // Skip script/style
           const tag = parent.tagName;
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
             return NodeFilter.FILTER_REJECT;
           }
           const text = caseSensitive ? node.textContent : node.textContent.toLowerCase();
-          if (text.includes(compareQuery)) {
-            return NodeFilter.FILTER_ACCEPT;
-          }
-          return NodeFilter.FILTER_REJECT;
+          return text.includes(compareQuery) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
         }
       }
     );
 
     let textNode;
-    while (textNode = walker.nextNode()) {
+    while ((textNode = walker.nextNode())) {
       const text = caseSensitive ? textNode.textContent : textNode.textContent.toLowerCase();
       let startPos = 0;
       while (true) {
@@ -746,8 +734,6 @@
       }
     }
 
-    // Phase 2: Apply highlights in reverse order so earlier indices stay valid
-    // Group by node and process each node's matches in reverse
     const nodeGroups = new Map();
     for (const m of matchData) {
       if (!nodeGroups.has(m.node)) {
@@ -756,13 +742,11 @@
       nodeGroups.get(m.node).push(m);
     }
 
-    // We need to process in reverse document order for nodes,
-    // and reverse index order within each node
     const nodeList = Array.from(nodeGroups.keys()).reverse();
     const allMarks = [];
 
     for (const node of nodeList) {
-      const matches = nodeGroups.get(node).sort((a, b) => b.idx - a.idx); // reverse by idx
+      const matches = nodeGroups.get(node).sort((a, b) => b.idx - a.idx);
       for (const m of matches) {
         try {
           const range = document.createRange();
@@ -773,27 +757,23 @@
           range.surroundContents(mark);
           allMarks.push(mark);
         } catch (e) {
-          // skip if range is invalid
+          // Skip invalid ranges.
         }
       }
     }
 
-    // allMarks is in reverse document order; reverse it
     allMarks.reverse();
     searchMatches = allMarks;
-
-    // Jump to first match
     if (searchMatches.length > 0) {
       currentMatchIndex = 0;
       highlightCurrentMatch();
     }
   }
 
-  // Navigate between search matches
+  // Navigate between search matches.
   function navigateSearch(direction) {
     if (searchMatches.length === 0) return;
 
-    // Remove current highlight
     if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
       searchMatches[currentMatchIndex].className = 'modalbrowsing-search-highlight';
     }
@@ -806,14 +786,7 @@
     }
 
     highlightCurrentMatch();
-  }
-
-  // Highlight and scroll to the current match
-  function highlightCurrentMatch() {
-    if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
-    const mark = searchMatches[currentMatchIndex];
-    mark.className = 'modalbrowsing-search-current';
-    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    updateSearchCount(document.querySelector('.modalbrowsing-search-count'));
   }
 
   // Update the match counter display
@@ -828,14 +801,21 @@
     }
   }
 
-  // Remove all search highlight <mark> elements and restore original text
+  function highlightCurrentMatch() {
+    if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
+    const mark = searchMatches[currentMatchIndex];
+    mark.className = 'modalbrowsing-search-current';
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // Clear search highlights and restore original text.
   function clearSearchHighlights() {
     const marks = document.querySelectorAll('mark.modalbrowsing-search-highlight, mark.modalbrowsing-search-current');
     marks.forEach(mark => {
       const parent = mark.parentNode;
       if (parent) {
         parent.replaceChild(document.createTextNode(mark.textContent), mark);
-        parent.normalize(); // merge adjacent text nodes
+        parent.normalize();
       }
     });
   }
@@ -1785,13 +1765,13 @@
 
       // Search navigation
       case 'n':
-        if (!event.shiftKey && searchMatches.length > 0) {
+        if (!event.shiftKey && searchQuery) {
           navigateSearch(1);
           handled = true;
         }
         break;
       case 'N':
-        if (event.shiftKey && searchMatches.length > 0) {
+        if (event.shiftKey && searchQuery) {
           navigateSearch(-1);
           handled = true;
         }
@@ -1802,7 +1782,7 @@
         if (helpOpen) {
           closeHelp();
           handled = true;
-        } else if (searchMatches.length > 0 || searchOverlay) {
+        } else if (searchQuery || searchOverlay) {
           closeSearchBar(true); // clear highlights and close
           handled = true;
         } else if (document.activeElement) {

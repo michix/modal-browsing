@@ -2,6 +2,8 @@
 
 ## Version 1
 
+- (Fix) Making search also feasible with big websites.
+
 ### 1.4.2
 
 - (Fix) Makes scolling using `h`, `j`, `k`, `l` feasible on QMK keyboards.
