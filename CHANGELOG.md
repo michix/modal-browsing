@@ -5,7 +5,7 @@
 ### 1.4.3
 
 - (Fix) Making search also feasible with big websites.
-- (Fix) Corrects state confusion when navigating between tabs using `<ctrl-i>` and `</ctrl-o>`.
+- (Fix) Corrects state confusion when navigating between tabs using `<ctrl-i>` and `<ctrl-o>`.
 - (Fix) Removes permission for `storage` since it is not required.
 
 ### 1.4.2
