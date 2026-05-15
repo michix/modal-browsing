@@ -2,7 +2,10 @@
 
 ## Version 1
 
+### 1.4.3
+
 - (Fix) Making search also feasible with big websites.
+- (Fix) Corrects state confusion when navigating between tabs using `<ctrl-i>` and `</ctrl-o>`.
 
 ### 1.4.2
 

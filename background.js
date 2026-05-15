@@ -82,16 +82,27 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
     tabActivationHistory.splice(existingIndex, 1);
   }
 
+  // Truncate forward history when navigating to a new tab from a non-end position
+  // This mimics browser history behavior: going back then clicking a new link
+  // replaces the forward history instead of appending to it
+  if (tabHistoryIndex >= 0 && tabHistoryIndex < tabActivationHistory.length - 1) {
+    // User went back in history and is now clicking a different tab
+    // Truncate everything after current position
+    tabActivationHistory = tabActivationHistory.slice(0, tabHistoryIndex + 1);
+  }
+
   // Append as most recent
   tabActivationHistory.push(tabId);
 
   // Clamp history size
   if (tabActivationHistory.length > 50) {
     tabActivationHistory.shift();
+    // Adjust index if we removed items from the beginning
+    tabHistoryIndex = tabActivationHistory.length - 1;
+  } else {
+    // Point to the newest entry
+    tabHistoryIndex = tabActivationHistory.length - 1;
   }
-
-  // Point to the newest entry
-  tabHistoryIndex = tabActivationHistory.length - 1;
 });
 
 // Clean up closed tabs from history
