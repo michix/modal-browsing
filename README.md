@@ -124,6 +124,24 @@ This extension is built with privacy in mind:
 - [ ] Customizable keybindings via settings page
 - [ ] Additional link hint modes (open in background tab, download link, etc.)
 
+## Justification for permissions
+
+### activeTab
+
+This is required to query information about the active tab (e.g., the URL) and to be able to display the help popup.
+
+### tabs
+
+This is required to be able to navigate between tabs usind `<ctrl-i>` and `<ctrl-o>` and for moving the current to a tab group selected using `gt`.
+
+### clipboardWrite
+
+This is required for copying the current URL or a markdown/asciidoc link to the clipboard.
+
+### tabGroups
+
+This is required for moving the current to a tab group selected using `gt`.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.

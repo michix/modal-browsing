@@ -5,7 +5,6 @@
   "description": "Modal keyboard navigation for web pages with minimal permissions - navigate like Vim without the privacy concerns",
   "permissions": [
     "activeTab",
-    "storage",
     "tabs",
     "clipboardWrite",
     "tabGroups"
