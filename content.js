@@ -634,6 +634,12 @@
     if (searchOverlay) return; // already open
     searchMode = true;
 
+    // Clear previous search state for a fresh start
+    clearSearchHighlights();
+    searchQuery = '';
+    searchMatches = [];
+    currentMatchIndex = -1;
+
     searchOverlay = document.createElement('div');
     searchOverlay.className = 'modalbrowsing-search-bar';
 
@@ -643,7 +649,7 @@
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Search...';
-    input.value = searchQuery; // restore previous query if any
+    input.value = ''; // Start with empty input field
 
     const count = document.createElement('span');
     count.className = 'modalbrowsing-search-count';

@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.4.4
+
+- (Fix) Initializes search input field on a new search with `/`.
+
 ### 1.4.3
 
 - (Fix) Making search also feasible with big websites.
