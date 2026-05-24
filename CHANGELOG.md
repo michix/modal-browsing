@@ -5,6 +5,7 @@
 ### 1.4.4
 
 - (Fix) Initializes search input field on a new search with `/`.
+- (Fix) While typing in search mode, jump to the first matching search result.
 
 ### 1.4.3
 

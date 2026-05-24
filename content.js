@@ -662,7 +662,18 @@
 
     input.focus();
 
-    // Match the browser find flow: search once on Enter, then navigate with n/N.
+    // Live search as user types with debouncing for performance
+    let searchDebounceTimer = null;
+    input.addEventListener('input', () => {
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        searchQuery = input.value;
+        performSearch(searchQuery);
+        updateSearchCount(count);
+      }, 100); // 100ms debounce
+    });
+
+    // Handle Enter (confirm & close) and Escape (close) inside the input
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSearchBar(false); // keep highlights so n/N can navigate
