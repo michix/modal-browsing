@@ -1382,6 +1382,7 @@
           ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
           ['t', 'Open new tab'], ['x', 'Close tab'],
           ['X', 'Reopen last closed tab'],
+          ['co', 'Close other tabs'], ['cr', 'Close tabs to the right'], ['cl', 'Close tabs to the left'],
         ]
       },
       {
@@ -1623,6 +1624,40 @@
         lastKeyTime = currentTime;
         handled = true;
       }
+    } else if (event.key === 'c' && !event.shiftKey) {
+      // Start of 'c' sequence for closing tabs
+      if (lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+        // Second 'c' - ignore, just keep the first 'c'
+        handled = true;
+      } else {
+        lastKeyPressed = 'c';
+        lastKeyTime = currentTime;
+        handled = true;
+      }
+    } else if (event.key === 'o' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'co' sequence - close other tabs
+      chrome.runtime.sendMessage({ action: 'closeOtherTabs' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
+    } else if (event.key === 'r' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'cr' sequence - close tabs to the right
+      chrome.runtime.sendMessage({ action: 'closeRightTabs' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
+    } else if (event.key === 'l' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
+      // 'cl' sequence - close tabs to the left
+      chrome.runtime.sendMessage({ action: 'closeLeftTabs' }, (response) => {
+        if (response && response.notify) showNotification(response.notify);
+      });
+      handled = true;
+      lastKeyPressed = null;
+      lastKeyTime = 0;
     } else if (event.key === '<') {
       // Single '<' - move tab left
       chrome.runtime.sendMessage({ action: 'moveTabLeft' }, (response) => {

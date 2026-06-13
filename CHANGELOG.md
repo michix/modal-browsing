@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.5.0
+
+- (Feature) Adds shortcuts `cl`, `cr`, and `co` to close all tabs to the left, to the right, and all other tabs respectively.
+
 ### 1.4.4
 
 - (Fix) Initializes search input field on a new search with `/`.

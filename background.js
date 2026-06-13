@@ -20,6 +20,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   } else if (message.action === 'closeTab') {
     handleCloseTab(sender.tab);
     sendResponse({ success: true });
+  } else if (message.action === 'closeOtherTabs') {
+    handleCloseOtherTabs(sender.tab).then(sendResponse);
+    return true;
+  } else if (message.action === 'closeRightTabs') {
+    handleCloseRightTabs(sender.tab).then(sendResponse);
+    return true;
+  } else if (message.action === 'closeLeftTabs') {
+    handleCloseLeftTabs(sender.tab).then(sendResponse);
+    return true;
   } else if (message.action === 'reopenTab') {
     handleReopenTab();
     sendResponse({ success: true });
@@ -177,6 +186,60 @@ async function handleCloseTab(currentTab) {
     await chrome.tabs.remove(currentTab.id);
   } catch (error) {
     console.error('Error closing tab:', error);
+  }
+}
+
+async function handleCloseOtherTabs(currentTab) {
+  try {
+    // Get all tabs in the current window
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    
+    // Close all tabs except the current one
+    const tabIdsToClose = tabs
+      .filter(tab => tab.id !== currentTab.id)
+      .map(tab => tab.id);
+    
+    if (tabIdsToClose.length > 0) {
+      await chrome.tabs.remove(tabIdsToClose);
+    }
+  } catch (error) {
+    console.error('Error closing other tabs:', error);
+  }
+}
+
+async function handleCloseRightTabs(currentTab) {
+  try {
+    // Get all tabs in the current window
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    
+    // Close all tabs to the right of the current one
+    const tabIdsToClose = tabs
+      .filter(tab => tab.index > currentTab.index)
+      .map(tab => tab.id);
+    
+    if (tabIdsToClose.length > 0) {
+      await chrome.tabs.remove(tabIdsToClose);
+    }
+  } catch (error) {
+    console.error('Error closing right tabs:', error);
+  }
+}
+
+async function handleCloseLeftTabs(currentTab) {
+  try {
+    // Get all tabs in the current window
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    
+    // Close all tabs to the left of the current one
+    const tabIdsToClose = tabs
+      .filter(tab => tab.index < currentTab.index)
+      .map(tab => tab.id);
+    
+    if (tabIdsToClose.length > 0) {
+      await chrome.tabs.remove(tabIdsToClose);
+    }
+  } catch (error) {
+    console.error('Error closing left tabs:', error);
   }
 }
 
