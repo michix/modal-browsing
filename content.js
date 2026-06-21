@@ -699,9 +699,9 @@
     }
     if (clearHighlightsFlag) {
       clearSearchHighlights();
-      searchQuery = '';
       searchMatches = [];
       currentMatchIndex = -1;
+      // Note: searchQuery is NOT cleared here - it's preserved for n/N navigation
     }
   }
 
@@ -789,6 +789,21 @@
 
   // Navigate between search matches.
   function navigateSearch(direction) {
+    // If no active matches but we have a stored query, re-perform the search
+    if (searchMatches.length === 0 && searchQuery) {
+      performSearch(searchQuery);
+      // After search, if we have matches, navigate to first/last based on direction
+      if (searchMatches.length > 0) {
+        if (direction > 0) {
+          currentMatchIndex = 0;
+        } else {
+          currentMatchIndex = searchMatches.length - 1;
+        }
+        highlightCurrentMatch();
+      }
+      return;
+    }
+    
     if (searchMatches.length === 0) return;
 
     if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {

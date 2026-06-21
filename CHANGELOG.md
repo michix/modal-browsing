@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.6.0
+
+- (Feature) When pressing `n` and `N` you can now navigate between search terms from the last search using `/`.
+
 ### 1.5.0
 
 - (Feature) Adds shortcuts `cl`, `cr`, and `co` to close all tabs to the left, to the right, and all other tabs respectively.
