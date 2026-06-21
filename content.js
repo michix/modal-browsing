@@ -242,10 +242,36 @@
       color: #000 !important;
       border-radius: 1px;
     }
-    .modalbrowsing-search-current {
-      background: #FF8C00 !important;
+    .modalbrowsing-search-highlight-1 {
+      background: #FFD700 !important;
       color: #000 !important;
       border-radius: 1px;
+    }
+    .modalbrowsing-search-highlight-2 {
+      background: #00CED1 !important;
+      color: #000 !important;
+      border-radius: 1px;
+    }
+    .modalbrowsing-search-highlight-3 {
+      background: #FF69B4 !important;
+      color: #000 !important;
+      border-radius: 1px;
+    }
+    .modalbrowsing-search-highlight-4 {
+      background: #90EE90 !important;
+      color: #000 !important;
+      border-radius: 1px;
+    }
+    .modalbrowsing-search-highlight-5 {
+      background: #DDA0DD !important;
+      color: #000 !important;
+      border-radius: 1px;
+    }
+    .modalbrowsing-search-current {
+      background: #FF4500 !important;
+      color: #fff !important;
+      border-radius: 1px;
+      box-shadow: 0 0 0 2px #FF4500;
     }
     .modalbrowsing-omnibar-overlay {
       position: fixed;
@@ -706,6 +732,7 @@
   }
 
   // Perform search using browser-native find behavior.
+  // Supports multiple terms separated by | (e.g., "and|or|not")
   function performSearch(query) {
     clearSearchHighlights();
     searchMatches = [];
@@ -713,10 +740,17 @@
 
     if (!query || query.length === 0) return;
 
-    // Smart case: case-insensitive if query is all lowercase,
-    // case-sensitive if it contains any uppercase letter.
-    const caseSensitive = query !== query.toLowerCase();
-    const compareQuery = caseSensitive ? query : query.toLowerCase();
+    // Split query by | to get multiple search terms
+    const searchTerms = query.split('|').map(term => term.trim()).filter(term => term.length > 0);
+    if (searchTerms.length === 0) return;
+
+    // Store the search terms for later reference
+    const searchTermsData = searchTerms.map((term, index) => ({
+      term: term,
+      index: index,
+      caseSensitive: term !== term.toLowerCase(),
+      compareTerm: term.toLowerCase()
+    }));
 
     const matchData = [];
     const walker = document.createTreeWalker(
@@ -733,54 +767,80 @@
           if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') {
             return NodeFilter.FILTER_REJECT;
           }
-          const text = caseSensitive ? node.textContent : node.textContent.toLowerCase();
-          return text.includes(compareQuery) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+          // Check if any search term matches (respecting case sensitivity per term)
+          for (const termData of searchTermsData) {
+            const text = termData.caseSensitive ? node.textContent : node.textContent.toLowerCase();
+            const compareTerm = termData.caseSensitive ? termData.term : termData.compareTerm;
+            if (text.includes(compareTerm)) {
+              return NodeFilter.FILTER_ACCEPT;
+            }
+          }
+          return NodeFilter.FILTER_REJECT;
         }
       }
     );
 
     let textNode;
     while ((textNode = walker.nextNode())) {
-      const text = caseSensitive ? textNode.textContent : textNode.textContent.toLowerCase();
-      let startPos = 0;
-      while (true) {
-        const idx = text.indexOf(compareQuery, startPos);
-        if (idx === -1) break;
-        matchData.push({ node: textNode, idx: idx, length: query.length });
-        startPos = idx + query.length;
-      }
-    }
-
-    const nodeGroups = new Map();
-    for (const m of matchData) {
-      if (!nodeGroups.has(m.node)) {
-        nodeGroups.set(m.node, []);
-      }
-      nodeGroups.get(m.node).push(m);
-    }
-
-    const nodeList = Array.from(nodeGroups.keys()).reverse();
-    const allMarks = [];
-
-    for (const node of nodeList) {
-      const matches = nodeGroups.get(node).sort((a, b) => b.idx - a.idx);
-      for (const m of matches) {
-        try {
-          const range = document.createRange();
-          range.setStart(m.node, m.idx);
-          range.setEnd(m.node, m.idx + m.length);
-          const mark = document.createElement('mark');
-          mark.className = 'modalbrowsing-search-highlight';
-          range.surroundContents(mark);
-          allMarks.push(mark);
-        } catch (e) {
-          // Skip invalid ranges.
+      const text = textNode.textContent;
+      const textLower = text.toLowerCase();
+      
+      // Find all matches for all terms in this text node
+      for (const termData of searchTermsData) {
+        const compareTerm = termData.caseSensitive ? termData.term : termData.compareTerm;
+        const compareText = termData.caseSensitive ? text : textLower;
+        let startPos = 0;
+        while (true) {
+          const idx = compareText.indexOf(compareTerm, startPos);
+          if (idx === -1) break;
+          matchData.push({ 
+            node: textNode, 
+            idx: idx, 
+            length: termData.term.length,
+            termIndex: termData.index
+          });
+          startPos = idx + termData.term.length;
         }
       }
     }
 
+    // Sort all matches by document position
+    matchData.sort((a, b) => {
+      const position = a.node.compareDocumentPosition(b.node);
+      if (position & Node.DOCUMENT_POSITION_FOLLOWING) {
+        return -1;
+      } else if (position & Node.DOCUMENT_POSITION_PRECEDING) {
+        return 1;
+      }
+      return a.idx - b.idx;
+    });
+
+    // Apply highlights with different colors for different terms
+    // Process in reverse order to avoid index shifts
+    const reversedMatches = [...matchData].reverse();
+    const allMarks = [];
+
+    for (const m of reversedMatches) {
+      try {
+        const range = document.createRange();
+        range.setStart(m.node, m.idx);
+        range.setEnd(m.node, m.idx + m.length);
+        const mark = document.createElement('mark');
+        // Use different CSS class based on term index (cycling through 5 colors)
+        const colorClass = (m.termIndex % 5) + 1;
+        mark.className = `modalbrowsing-search-highlight modalbrowsing-search-highlight-${colorClass}`;
+        mark.dataset.termIndex = m.termIndex;
+        range.surroundContents(mark);
+        allMarks.push({ element: mark, termIndex: m.termIndex });
+      } catch (e) {
+        // Skip invalid ranges.
+      }
+    }
+
+    // Reverse to get document order
     allMarks.reverse();
-    searchMatches = allMarks;
+    searchMatches = allMarks.map(m => m.element);
+    
     if (searchMatches.length > 0) {
       currentMatchIndex = 0;
       highlightCurrentMatch();
@@ -806,8 +866,12 @@
     
     if (searchMatches.length === 0) return;
 
+    // Restore previous match's color
     if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
-      searchMatches[currentMatchIndex].className = 'modalbrowsing-search-highlight';
+      const prevMark = searchMatches[currentMatchIndex];
+      const termIndex = prevMark.dataset.termIndex || 0;
+      const colorClass = (parseInt(termIndex) % 5) + 1;
+      prevMark.className = `modalbrowsing-search-highlight modalbrowsing-search-highlight-${colorClass}`;
     }
 
     currentMatchIndex += direction;
@@ -836,13 +900,16 @@
   function highlightCurrentMatch() {
     if (currentMatchIndex < 0 || currentMatchIndex >= searchMatches.length) return;
     const mark = searchMatches[currentMatchIndex];
-    mark.className = 'modalbrowsing-search-current';
+    const termIndex = mark.dataset.termIndex || 0;
+    // Keep the colored class and add current styling
+    const colorClass = (parseInt(termIndex) % 5) + 1;
+    mark.className = `modalbrowsing-search-current modalbrowsing-search-highlight-${colorClass}`;
     mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   // Clear search highlights and restore original text.
   function clearSearchHighlights() {
-    const marks = document.querySelectorAll('mark.modalbrowsing-search-highlight, mark.modalbrowsing-search-current');
+    const marks = document.querySelectorAll('mark[class*="modalbrowsing-search-highlight"]');
     marks.forEach(mark => {
       const parent = mark.parentNode;
       if (parent) {
