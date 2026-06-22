@@ -6,6 +6,7 @@
 
 - (Feature) When pressing `n` and `N` you can now navigate between search terms from the last search using `/`.
 - (Feature) Search for multiple terms using `/` separating them with `|` (the terms will be highlighted differently).
+- (Fix) After closing other tabs with `co`, the search tab dialog (`o`) is not opened anymore.
 
 ### 1.5.0
 

@@ -1763,7 +1763,7 @@
     }
 
     // If a sequence key was handled, stop here
-    if (handled && (event.key === 'y' || event.key === 'l' || event.key === 'm' || event.key === 'a' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>')) {
+    if (handled && (event.key === 'y' || event.key === 'l' || event.key === 'm' || event.key === 'a' || event.key === 'f' || event.key === 'F' || event.key === 't' || event.key === 'g' || event.key === '<' || event.key === '>' || event.key === 'c' || event.key === 'o' || event.key === 'r')) {
       event.preventDefault();
       event.stopPropagation();
       return;
