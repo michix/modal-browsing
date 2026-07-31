@@ -6,7 +6,7 @@ I am not an expert in JavaScript nor in Browser extensions. This project was onl
 
 You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedge.microsoft.com/addons/detail/modalbrowsing/hfkdgjgmcggccfbmhgcfeecbinlgmffj) store.
 
-NOTE: Since this project was created with heavy use it LLMs, I will move it to another forge, as soon as I will find the time.
+**NOTE:** Since this project was created with heavy use of LLMs, I will move it to another forge, as soon as I will find the time.
 
 ## Features
 
