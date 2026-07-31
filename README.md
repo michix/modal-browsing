@@ -1,5 +1,3 @@
-NOTE: Since thisn project was created with heavy use it LLMs, I will move it to another forge, as soon as I will find the time.
-
 # ModalBrowsing
 
 A lightweight browser extension for Microsoft Edge that provides modal keyboard navigation for web pages with minimal permissions. Navigate the web with Vim-style keybindings without sacrificing your privacy.
@@ -7,6 +5,8 @@ A lightweight browser extension for Microsoft Edge that provides modal keyboard 
 I am not an expert in JavaScript nor in Browser extensions. This project was only possible due to the support of AI and [opencode](https://opencode.ai/). I would have not taken this effort if I were allowed to use Vimium (which is not possible due to compliance requirements and the many permissions, Vimium needs for certain features).
 
 You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedge.microsoft.com/addons/detail/modalbrowsing/hfkdgjgmcggccfbmhgcfeecbinlgmffj) store.
+
+NOTE: Since this project was created with heavy use it LLMs, I will move it to another forge, as soon as I will find the time.
 
 ## Features
 
