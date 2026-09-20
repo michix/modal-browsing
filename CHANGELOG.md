@@ -2,6 +2,10 @@
 
 ## Version 1
 
+### 1.6.1
+
+- (Chore) Ask for confirmation before closing tabs with `cl`, `cr`, and `co`.
+
 ### 1.6.0
 
 - (Feature) When pressing `n` and `N` you can now navigate between search terms from the last search using `/`.

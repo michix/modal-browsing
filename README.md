@@ -52,6 +52,9 @@ You can find [this extension in the Microsoft Edge-Add-Ons](https://microsoftedg
 - `t` - Open new tab
 - `x` - Close current tab
 - `X` (Shift+x) - Reopen last closed tab
+- `co` - Close other tabs (confirm with `y`)
+- `cl` - Close tabs to the left (confirm with `y`)
+- `cr` - Close tabs to the right (confirm with `y`)
 
 ### Other
 

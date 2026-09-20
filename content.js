@@ -10,6 +10,12 @@
   let lastKeyPressed = null;
   let lastKeyTime = 0;
   const keySequenceTimeout = 1000; // 1 second timeout for key sequences
+  const closeConfirmTimeout = 5000; // 5 seconds to confirm closing other tabs
+
+  // Pending close confirmation state
+  let pendingCloseAction = null; // 'other', 'right', 'left'
+  let pendingCloseTime = 0;
+  let pendingCloseNotification = null;
 
   // Link hints state
   let linkHintMode = false;
@@ -144,7 +150,7 @@
   }
 
   // Show temporary notification
-  function showNotification(message) {
+  function showNotification(message, duration = 1500) {
     const notification = document.createElement('div');
     notification.textContent = message;
     notification.style.cssText = `
@@ -167,7 +173,32 @@
     setTimeout(() => {
       notification.style.animation = 'slideOut 0.2s ease-out';
       setTimeout(() => notification.remove(), 200);
-    }, 1500);
+    }, duration);
+
+    return notification;
+  }
+
+  // Prompt for close confirmation after co/cl/cr
+  function promptCloseConfirmation(action) {
+    const names = {
+      other: 'Close other tabs?',
+      right: 'Close tabs to the right?',
+      left: 'Close tabs to the left?'
+    };
+    if (pendingCloseNotification) {
+      pendingCloseNotification.remove();
+      pendingCloseNotification = null;
+    }
+    pendingCloseAction = action;
+    pendingCloseTime = Date.now();
+    pendingCloseNotification = showNotification(names[action] + ' Press y to confirm, any other key to cancel', closeConfirmTimeout);
+  }
+
+  function clearCloseNotification() {
+    if (pendingCloseNotification) {
+      pendingCloseNotification.remove();
+      pendingCloseNotification = null;
+    }
   }
 
   // Add CSS animations
@@ -1464,7 +1495,7 @@
           ['r', 'Reload page'], ['o', 'Search tabs, open URL'],
           ['t', 'Open new tab'], ['x', 'Close tab'],
           ['X', 'Reopen last closed tab'],
-          ['co', 'Close other tabs'], ['cr', 'Close tabs to the right'], ['cl', 'Close tabs to the left'],
+          ['co', 'Close other tabs (confirm y/n)'], ['cr', 'Close tabs to the right (confirm y/n)'], ['cl', 'Close tabs to the left (confirm y/n)'],
         ]
       },
       {
@@ -1606,6 +1637,39 @@
     let handled = false;
     const currentTime = Date.now();
 
+    // Handle pending close confirmation before other key sequences
+    if (pendingCloseAction) {
+      if ((currentTime - pendingCloseTime) >= closeConfirmTimeout) {
+        pendingCloseAction = null;
+        pendingCloseTime = 0;
+        clearCloseNotification();
+      } else if (event.key === 'y' && !event.shiftKey) {
+        const action = pendingCloseAction;
+        pendingCloseAction = null;
+        pendingCloseTime = 0;
+        clearCloseNotification();
+        let messageAction;
+        if (action === 'other') messageAction = 'closeOtherTabs';
+        else if (action === 'right') messageAction = 'closeRightTabs';
+        else if (action === 'left') messageAction = 'closeLeftTabs';
+        chrome.runtime.sendMessage({ action: messageAction }, (response) => {
+          if (response && response.notify) showNotification(response.notify);
+        });
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      } else {
+        // Any key other than y cancels the pending close action
+        pendingCloseAction = null;
+        pendingCloseTime = 0;
+        clearCloseNotification();
+        showNotification('Close cancelled');
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+
     // Handle link hint mode separately
     if (linkHintMode) {
       if (event.key === 'Escape') {
@@ -1717,26 +1781,20 @@
         handled = true;
       }
     } else if (event.key === 'o' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-      // 'co' sequence - close other tabs
-      chrome.runtime.sendMessage({ action: 'closeOtherTabs' }, (response) => {
-        if (response && response.notify) showNotification(response.notify);
-      });
+      // 'co' sequence - prompt to close other tabs
+      promptCloseConfirmation('other');
       handled = true;
       lastKeyPressed = null;
       lastKeyTime = 0;
     } else if (event.key === 'r' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-      // 'cr' sequence - close tabs to the right
-      chrome.runtime.sendMessage({ action: 'closeRightTabs' }, (response) => {
-        if (response && response.notify) showNotification(response.notify);
-      });
+      // 'cr' sequence - prompt to close tabs to the right
+      promptCloseConfirmation('right');
       handled = true;
       lastKeyPressed = null;
       lastKeyTime = 0;
     } else if (event.key === 'l' && lastKeyPressed === 'c' && (currentTime - lastKeyTime) < keySequenceTimeout) {
-      // 'cl' sequence - close tabs to the left
-      chrome.runtime.sendMessage({ action: 'closeLeftTabs' }, (response) => {
-        if (response && response.notify) showNotification(response.notify);
-      });
+      // 'cl' sequence - prompt to close tabs to the left
+      promptCloseConfirmation('left');
       handled = true;
       lastKeyPressed = null;
       lastKeyTime = 0;
